@@ -9,7 +9,7 @@ metadata:
   version: "1.0"
 ---
 
-Verify that an implementation satisfies its evaluated architecture and current OpenSpec change before archive.
+Explicitly re-verify that an implementation satisfies its evaluated architecture and current OpenSpec change.
 
 **Store selection:** If the user names a store (a store is a standalone OpenSpec repo registered on this machine) or the work lives in one, run `openspec store list --json` to discover registered store ids, then pass `--store <id>` on the commands that read or write specs and changes (`new change`, `status`, `instructions`, `list`, `show`, `validate`, `acceptance`, `archive`, `doctor`, `context`). Other commands do not take the flag. Hints printed by commands already carry the flag; keep it on follow-ups. Without a store, commands act on the nearest local `openspec/` root.
 
@@ -23,7 +23,7 @@ Verify that an implementation satisfies its evaluated architecture and current O
 4. Apply the shared adversarial acceptance review below to evaluated authority, artifacts, implementation, production composition, and witnesses.
 5. Return one report that keeps semantic findings, deterministic gates, deferred observations, and the final eligibility decision distinct.
 
-## Shared adversarial acceptance review
+## End-of-execute adversarial acceptance
 
 Treat semantic review and deterministic acceptance as separate, mandatory layers. The CLI proves only declared deterministic gates; it does not establish semantic implementation conformance.
 
@@ -90,8 +90,8 @@ Run `openspec acceptance "<name>" --json` with the selected store flag, if any. 
 
 ### 5. Decide and report
 
-Report the obligation ledger, architecture-conformance matrix, evidence-complete semantic findings, deterministic acceptance result, and final eligibility separately. Put deferred and informational observations in a non-blocking section. Never report `ready to archive` while any applicable semantic blocker or deterministic gate fails. User confirmation, warning acceptance, incomplete-task confirmation, `--yes`, `--skip-specs`, or `--no-validate` cannot override these blockers.
+Report the obligation ledger, architecture-conformance matrix, evidence-complete semantic findings, deterministic acceptance result, and final execution status separately. Put deferred and informational observations in a non-blocking section. Never report the execute/apply phase complete while any applicable semantic blocker or deterministic gate fails. Repair the implementation or its authoritative artifacts and rerun execute/apply or explicit verify; later archive approval does not rerun or override this work.
 
 **Output**
 
-Include a compact scorecard for obligation coverage and deterministic gates, followed by the architecture-conformance matrix and evidence-complete findings. Cite concrete files, traces, commands, and observed results. If there are no blockers, say `ready to archive`; otherwise state the exact blocking classes and repairs. Never soften a blocker into a warning, and never promote a deferred observation into a blocker.
+Include a compact scorecard for obligation coverage and deterministic gates, followed by the architecture-conformance matrix and evidence-complete findings. Cite concrete files, traces, commands, and observed results. If there are no blockers, say `execution acceptance passed; ready for user review`; otherwise state the exact blocking classes and repairs. Never soften a blocker into a warning, and never promote a deferred observation into a blocker.

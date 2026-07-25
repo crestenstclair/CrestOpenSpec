@@ -1,5 +1,6 @@
 /**
- * One semantic-review contract shared by verify, archive, and bulk archive.
+ * One semantic-review contract shared by end-of-execute/apply and explicit
+ * verify workflows.
  *
  * Keep the contract language-neutral. Deterministic source analysis belongs in
  * a project-declared executable validation or an explicitly installed proof
@@ -15,7 +16,7 @@ export const ARCHITECTURE_DRIFT_GUARD_IDS = [
 
 export type ArchitectureDriftGuardId = (typeof ARCHITECTURE_DRIFT_GUARD_IDS)[number];
 
-export const ACCEPTANCE_REVIEW_CONTRACT = `## Shared adversarial acceptance review
+export const EXECUTION_ACCEPTANCE_CONTRACT = `## End-of-execute adversarial acceptance
 
 Treat semantic review and deterministic acceptance as separate, mandatory layers. The CLI proves only declared deterministic gates; it does not establish semantic implementation conformance.
 
@@ -82,4 +83,4 @@ Run \`openspec acceptance "<name>" --json\` with the selected store flag, if any
 
 ### 5. Decide and report
 
-Report the obligation ledger, architecture-conformance matrix, evidence-complete semantic findings, deterministic acceptance result, and final eligibility separately. Put deferred and informational observations in a non-blocking section. Never report \`ready to archive\` while any applicable semantic blocker or deterministic gate fails. User confirmation, warning acceptance, incomplete-task confirmation, \`--yes\`, \`--skip-specs\`, or \`--no-validate\` cannot override these blockers.`;
+Report the obligation ledger, architecture-conformance matrix, evidence-complete semantic findings, deterministic acceptance result, and final execution status separately. Put deferred and informational observations in a non-blocking section. Never report the execute/apply phase complete while any applicable semantic blocker or deterministic gate fails. Repair the implementation or its authoritative artifacts and rerun execute/apply or explicit verify; later archive approval does not rerun or override this work.`;

@@ -1,8 +1,8 @@
 ## Context
 
-The committed CUE bridge evaluates the complete top-level `spec/*.cue` package in memory and supplies its concrete `project` value plus a relationship index to planning, exploration, apply, and verify instructions. The active `track-spec-progress` proposal intentionally keeps ordinary reads non-executing and reserves command execution for an explicit `--check` action. Core archive, meanwhile, validates deltas and task state but can skip validation and does not run `completion.projectChecks`. The expanded verify/archive workflows are advisory prose and currently use heuristics that can confuse missing future scope with a current defect.
+The committed CUE bridge evaluates the complete top-level `spec/*.cue` package in memory and supplies its concrete `project` value plus a relationship index to planning, exploration, apply, and verify instructions. The active `track-spec-progress` proposal intentionally keeps ordinary reads non-executing and reserves command execution for an explicit `--check` action. Apply currently marks task completion without a final evidence boundary, while expanded review workflows use heuristics that can confuse missing future scope with a current defect. Archive is a later approval and record mutation and should not repeat implementation work.
 
-Acceptance therefore crosses four existing boundaries: canonical root/store selection, evaluated CUE, shared OpenSpec validation, and archive mutation. It must also support arbitrary project toolchains without importing their terminology or output formats into the core model. Repository-declared commands are trusted only after a user invokes an explicit command-running workflow.
+Acceptance therefore crosses four existing boundaries: canonical root/store selection, evaluated CUE, shared OpenSpec validation, and execute/apply completion. It must also support arbitrary project toolchains without importing their terminology or output formats into the core model. Repository-declared commands are trusted only after a user invokes an explicit command-running workflow.
 
 ## Goals / Non-Goals
 
@@ -12,14 +12,15 @@ Acceptance therefore crosses four existing boundaries: canonical root/store sele
 - Fail closed for any applicable CUE, OpenSpec, process, assertion, or test-evidence failure.
 - Keep command execution, assertion evaluation, and test-evidence extraction independent and extensible.
 - Prove nonzero test execution only when a validation explicitly declares test-suite proof.
-- Enforce the same deterministic service before archive mutation in projects that declare the acceptance contract.
-- Give verify, archive, and bulk archive one shared phase-aware adversarial review contract without claiming that CLI success proves semantic conformance.
+- Enforce the same deterministic service at the end of execute/apply in projects that declare the acceptance contract.
+- Give execute/apply and explicit verify one shared phase-aware adversarial review contract without claiming that CLI success proves semantic conformance.
+- Keep archive and bulk archive focused on user approval and record mutation without repeating implementation review.
 - Preserve canonical root identity, cross-platform paths, bounded diagnostics, single-document JSON, and legacy behavior outside the declared contract.
 
 **Non-Goals:**
 
 - Implement the separate `track-spec-progress` projection or cause ordinary progress/context/list/static validation reads to execute commands.
-- Embed knowledge of a programming language, package manager, compiler, build system, test runner, or runner-specific output grammar in acceptance or archive code.
+- Embed knowledge of a programming language, package manager, compiler, build system, test runner, or runner-specific output grammar in acceptance core or workflow instructions.
 - Persist acceptance state, introduce a database/cache/daemon, or generate a verification ledger.
 - Make a direct CLI process perform semantic agent reasoning.
 - Infer test execution from descriptions, paths, success strings, discovered tests, or arbitrary prose.
@@ -28,15 +29,15 @@ Acceptance therefore crosses four existing boundaries: canonical root/store sele
 
 ### 1. Treat deterministic gates and semantic review as separate products
 
-`AcceptanceService` returns enforceable structured evidence and a pass/fail status. A shared workflow fragment, `ACCEPTANCE_REVIEW_CONTRACT`, tells agents how to construct an obligation ledger and report semantic findings. The fragment is consumed by verify, archive, and bulk-archive source templates and therefore by generated skills/commands.
+`AcceptanceService` returns enforceable structured evidence and a pass/fail status. A shared workflow fragment, `EXECUTION_ACCEPTANCE_CONTRACT`, tells agents how to construct an obligation ledger and report semantic findings. The fragment is consumed at the end of execute/apply and by explicit verify, and therefore by their generated skills/commands. Archive and bulk archive deliberately do not consume it.
 
-The CLI report states that semantic review is outside its enforcement boundary. Workflow readiness requires both a passing deterministic report and no applicable blocking semantic finding. Neither layer can substitute for the other.
+The CLI report states that semantic review is outside its enforcement boundary. Execute-phase completion requires both a passing deterministic report and no applicable blocking semantic finding. Neither layer can substitute for the other.
 
 Alternative considered: put semantic heuristics in the CLI. Rejected because phase applicability and implementation intent require repository reasoning that cannot be reduced to deterministic command success.
 
 ### 2. Make applicability explicit and fail malformed declarations closed
 
-The service first evaluates the complete top-level CUE package through `loadCueArchitecture`. A project declares the new executable-gate contract when the evaluated `project` contains `completion.projectChecks` or any attached validation contains a `proof` field; an empty project-check array is still an explicit declaration. No CUE package, or valid CUE with neither declaration form, yields `not_applicable` for executable acceptance and preserves the legacy archive path. Once either declaration form is present, malformed values cannot escape enforcement.
+The service first evaluates the complete top-level CUE package through `loadCueArchitecture`. A project declares the new executable-gate contract when the evaluated `project` contains `completion.projectChecks` or any attached validation contains a `proof` field; an empty project-check array is still an explicit declaration. No CUE package, or valid CUE with neither declaration form, yields `not_applicable` for executable acceptance and lets execute/apply complete without project-declared commands. Once either declaration form is present, malformed values cannot escape enforcement.
 
 Any top-level CUE file that fails bridge execution, unification, concreteness, JSON rendering, or project resolution produces a failed architecture gate. A malformed `completion.projectChecks` declaration or unresolved validation is also a blocking architecture/declaration failure.
 
@@ -128,7 +129,7 @@ Unavailable executables, nonzero exit, signal termination, timeout, and output-l
 
 An `AssertionEvaluatorRegistry` maps a generic `type` to an evaluator. Initial evaluators cover process-result concepts only: `exit-code`, `stdout-contains`, `stdout-not-contains`, `stderr-contains`, and `stderr-not-contains`. Unsupported or malformed declarations return failed assertion evidence; they are never skipped or treated as passing.
 
-The acceptance service knows only the registry interface and `AssertionResult`, so new generic assertions do not change orchestration or archive code.
+The acceptance service knows only the registry interface and `AssertionResult`, so new generic assertions do not change orchestration or execute/archive workflow templates.
 
 ### 8. Require explicit test-evidence providers and validate their evidence centrally
 
@@ -147,21 +148,21 @@ source: <structured JSON explanation>
 
 Core validates exact selector equality, nonnegative integer counts, known passed/failed accounting, discovered counts, failed-test absence, and `executed >= minimumExecuted`. Unknown executed count, selector mismatch, malformed/inconsistent evidence, zero execution, provider error, or unsupported provider fails closed even if the process exited zero. Because each declaration owns its process/evidence result, a broad suite's count cannot satisfy another targeted declaration. Exact duplicate declarations may later share a frozen result by content identity, but the initial implementation executes them independently to avoid accidental evidence reuse.
 
-The initial `structured-json-v1` provider is runner-neutral: explicit `options.stream` selects stdout or stderr, and the entire selected stream must be one JSON object in the neutral evidence shape. Runner-specific parsers can be separate provider modules registered through the same interface. Adding one requires provider implementation/registration only; acceptance, reports, CUE resolution, and archive orchestration do not change. No provider is inferred or selected as a default.
+The initial `structured-json-v1` provider is runner-neutral: explicit `options.stream` selects stdout or stderr, and the entire selected stream must be one JSON object in the neutral evidence shape. Runner-specific parsers can be separate provider modules registered through the same interface. Adding one requires provider implementation/registration only; acceptance, reports, CUE resolution, and execute/archive workflow orchestration do not change. No provider is inferred or selected as a default.
 
 ### 9. Preserve explicit execution and canonical root boundaries
 
 `openspec acceptance <change> [--json] [--store <id>]` is the change surface. `openspec acceptance --project` and its `--release` alias select all applicable OpenSpec material; a change and project/release flag are mutually exclusive. The command uses existing canonical root/store resolution and reports root provenance.
 
-Only `acceptance`, future explicit progress `--check`, and archive (already an explicit mutating workflow) may invoke the runner. Context, list, planning, normal progress, instructions, and static validation continue to call only the CUE loader/validator and never the runner.
+Only direct `acceptance`, future explicit progress `--check`, and end-of-execute apply/explicit verify may invoke the runner. Context, list, planning, normal progress, instructions, static validation, and archive continue to call only the CUE loader/validator and never the runner.
 
-### 10. Put acceptance before every archive mutation
+### 10. Put acceptance at the end of execute/apply
 
-Core archive runs `AcceptanceService` immediately after resolving the root/change and before validation prompts, spec rebuilding/writes, archive-directory creation, or moves. If the report is applicable and failed, archive returns nonzero and includes the report; no confirmation flag, incomplete-task confirmation, `--no-validate`, `--skip-specs`, or warning acceptance can bypass it. `--no-validate` retains its legacy meaning only after an inapplicable acceptance report.
+When apply completes its final task—or begins with instructions already in `all_done` state—it applies the shared semantic contract and runs `openspec acceptance <change> --json`. A failing layer keeps execute/apply incomplete and returns the agent to the implementation repair loop. A passing result hands the completed implementation to the user for review and optional archive approval.
 
-For an inapplicable project, archive reports `not applicable` and follows the existing validation/task/spec behavior. For an applicable passing project, existing prompts may still govern non-mandatory legacy choices, but cannot undo the completed gates.
+If implementation pauses with tasks remaining, final acceptance does not run. For a project where executable acceptance is `not_applicable`, the semantic layer still determines whether the current implementation satisfies applicable authority, while no repository-declared validation command is invented.
 
-The agent archive and bulk-archive workflows first perform the shared semantic review, obtain deterministic JSON reports, and mark each change independently eligible or blocked. Bulk archive may continue with eligible changes after user confirmation, but never archives a failed change. It invokes core archive for each eligible change rather than duplicating filesystem mutation logic.
+Archive and bulk archive summarize completion and delta-spec effects, obtain exact user approval, and invoke core archive. They do not rerun semantic review or deterministic acceptance. A user who wants a fresh functional review invokes explicit verify before deciding whether to approve archive.
 
 ### 11. Make the semantic review phase-aware and enforce architecture-drift guards
 
@@ -186,13 +187,13 @@ Only contradictions on implemented paths, unauthorized early implementation, req
 - **[Risk] A broad suite can produce valid counts while a targeted selector is stale.** → Require opaque selector identity in both declaration and provider evidence, execute every applicable attachment independently, and reject selector mismatch.
 - **[Risk] Future resource validations could be executed in the wrong phase.** → Require explicit attached-test applicability metadata and fail malformed applicability instead of interpreting roadmap prose.
 - **[Risk] Strict validation can expose warnings in affected baseline specs.** → Report each exact validator issue and require repair for governed acceptance; do not downgrade warnings in mandatory mode.
-- **[Risk] Archive output gains acceptance information for legacy projects.** → Add only an explicit `not applicable` result while retaining all prior archive choices and mutation behavior.
+- **[Risk] End-of-execute acceptance can lengthen the final apply turn.** → Run it only after all tasks complete, keep failures inside the active repair context, and retain explicit verify for deliberate later review without burdening archive.
 - **[Trade-off] The neutral structured provider requires projects to emit or adapt to a small JSON proof protocol.** → This supplies trustworthy evidence without making any runner a default; runner-specific adapters remain isolated providers.
 
 ## Migration Plan
 
 1. Land the neutral types, registries, runner, declaration resolver, validators, service, renderers, and CLI without enabling any read-path execution.
 2. Add self-contained acceptance fixtures and verify pass/failure/provider/nonzero-test behavior, independent resource-level execution, and selector binding.
-3. Insert the service at the start of core archive and verify that every failure precedes filesystem mutation; preserve the legacy branch for inapplicable projects.
-4. Refactor verify/archive/bulk templates onto the shared review contract and architecture-drift guard matrix, regenerate committed skills/commands, and update parity tests, language-neutral conforming/violating fixtures, and documentation.
-5. Projects adopt enforcement by adding a concrete `completion.projectChecks` array and conforming top-level project validations. Rollback is removal of that explicit declaration before release; once declared, CLI flags cannot bypass it.
+3. Integrate the shared review contract and deterministic service at all-done apply completion; keep blocked work in the implementation repair loop.
+4. Reuse the contract for explicit verify, simplify archive/bulk archive to approval and record mutation, regenerate committed skills/commands, and update parity tests, language-neutral conforming/violating fixtures, and documentation.
+5. Projects adopt executable enforcement by adding a concrete `completion.projectChecks` array and conforming validation declarations. Rollback is removal of that explicit declaration; semantic end-of-execute review remains applicable to implemented scope.

@@ -624,13 +624,12 @@ openspec archive update-ci-config --skip-specs
 
 **What it does:**
 
-1. Runs mandatory deterministic acceptance, when declared, before any mutation
-2. Validates the legacy archive path (unless `--no-validate`)
-3. Prompts for confirmation (unless `--yes`)
-4. Merges delta specs into `openspec/specs/`
-5. Moves the change folder to `openspec/changes/archive/YYYY-MM-DD-<name>/`
+1. Validates the change (unless `--no-validate`)
+2. Prompts for confirmation (unless `--yes`)
+3. Merges delta specs into `openspec/specs/`
+4. Moves the change folder to `openspec/changes/archive/YYYY-MM-DD-<name>/`
 
-For a governed CUE project, `--yes`, incomplete-task confirmation, `--skip-specs`, and `--no-validate` cannot bypass failed acceptance. For projects without the declaration, archive retains its documented legacy behavior.
+Implementation acceptance runs at the end of `/opsx:apply`, or on demand through `/opsx:verify` or `openspec acceptance`. Archive does not repeat that work: its flags retain their documented validation, confirmation, and spec-update meanings.
 
 ---
 

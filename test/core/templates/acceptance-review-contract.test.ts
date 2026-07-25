@@ -4,10 +4,12 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import {
-  ACCEPTANCE_REVIEW_CONTRACT,
+  EXECUTION_ACCEPTANCE_CONTRACT,
   ARCHITECTURE_DRIFT_GUARD_IDS,
+  getApplyChangeSkillTemplate,
   getArchiveChangeSkillTemplate,
   getBulkArchiveChangeSkillTemplate,
+  getOpsxApplyCommandTemplate,
   getOpsxArchiveCommandTemplate,
   getOpsxBulkArchiveCommandTemplate,
   getOpsxVerifyCommandTemplate,
@@ -42,19 +44,17 @@ const fixtureDocument = JSON.parse(readFileSync(fixturePath, 'utf8')) as {
   cases: ReviewFixture[];
 };
 
-describe('shared adversarial acceptance review contract', () => {
-  it('is embedded verbatim in verify, archive, and bulk archive skill and command templates', () => {
+describe('end-of-execute adversarial acceptance contract', () => {
+  it('is embedded verbatim in execute/apply and explicit verify skill and command templates', () => {
     const outputs = [
+      getApplyChangeSkillTemplate().instructions,
       getVerifyChangeSkillTemplate().instructions,
-      getArchiveChangeSkillTemplate().instructions,
-      getBulkArchiveChangeSkillTemplate().instructions,
+      getOpsxApplyCommandTemplate().content,
       getOpsxVerifyCommandTemplate().content,
-      getOpsxArchiveCommandTemplate().content,
-      getOpsxBulkArchiveCommandTemplate().content,
     ];
 
     for (const output of outputs) {
-      expect(output).toContain(ACCEPTANCE_REVIEW_CONTRACT);
+      expect(output).toContain(EXECUTION_ACCEPTANCE_CONTRACT);
       expect(output).toContain('Read the evaluated CUE context before');
       expect(output).toContain('DEFERRED_SCOPE');
       expect(output).toContain('Missing deferred functionality is never a blocker');
@@ -64,14 +64,29 @@ describe('shared adversarial acceptance review contract', () => {
     }
   });
 
+  it('keeps archive and bulk archive approval-focused without rerunning acceptance', () => {
+    const outputs = [
+      getArchiveChangeSkillTemplate().instructions,
+      getBulkArchiveChangeSkillTemplate().instructions,
+      getOpsxArchiveCommandTemplate().content,
+      getOpsxBulkArchiveCommandTemplate().content,
+    ];
+
+    for (const output of outputs) {
+      expect(output).not.toContain(EXECUTION_ACCEPTANCE_CONTRACT);
+      expect(output).toContain('Acceptance belongs at the end');
+      expect(output).toContain('Do not run the shared adversarial review');
+    }
+  });
+
   it('contains every guard and keeps deterministic acceptance free of source-language inference', () => {
     for (const guard of ARCHITECTURE_DRIFT_GUARD_IDS) {
-      expect(ACCEPTANCE_REVIEW_CONTRACT).toContain(`#### ${guard}`);
+      expect(EXECUTION_ACCEPTANCE_CONTRACT).toContain(`#### ${guard}`);
     }
-    expect(ACCEPTANCE_REVIEW_CONTRACT).toContain('A broad suite cannot rehabilitate a targeted validation that selects zero tests');
-    expect(ACCEPTANCE_REVIEW_CONTRACT).toContain('evidence for a broad or different selector cannot satisfy the targeted declaration');
-    expect(ACCEPTANCE_REVIEW_CONTRACT).toContain('Do not add AST assumptions');
-    expect(ACCEPTANCE_REVIEW_CONTRACT).toContain('must declare an executable validation or explicit provider');
+    expect(EXECUTION_ACCEPTANCE_CONTRACT).toContain('A broad suite cannot rehabilitate a targeted validation that selects zero tests');
+    expect(EXECUTION_ACCEPTANCE_CONTRACT).toContain('evidence for a broad or different selector cannot satisfy the targeted declaration');
+    expect(EXECUTION_ACCEPTANCE_CONTRACT).toContain('Do not add AST assumptions');
+    expect(EXECUTION_ACCEPTANCE_CONTRACT).toContain('must declare an executable validation or explicit provider');
   });
 
   it('exercises every requested violation with an evidence-complete conforming counterpart', () => {

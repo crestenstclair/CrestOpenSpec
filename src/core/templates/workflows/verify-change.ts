@@ -1,9 +1,9 @@
 import type { SkillTemplate, CommandTemplate } from '../types.js';
-import { ACCEPTANCE_REVIEW_CONTRACT } from './acceptance-review.js';
+import { EXECUTION_ACCEPTANCE_CONTRACT } from './acceptance-review.js';
 import { STORE_SELECTION_GUIDANCE } from './store-selection.js';
 
 function verifyInstructions(input: string): string {
-  return `Verify that an implementation satisfies its evaluated architecture and current OpenSpec change before archive.
+  return `Explicitly re-verify that an implementation satisfies its evaluated architecture and current OpenSpec change.
 
 ${STORE_SELECTION_GUIDANCE}
 
@@ -17,11 +17,11 @@ ${STORE_SELECTION_GUIDANCE}
 4. Apply the shared adversarial acceptance review below to evaluated authority, artifacts, implementation, production composition, and witnesses.
 5. Return one report that keeps semantic findings, deterministic gates, deferred observations, and the final eligibility decision distinct.
 
-${ACCEPTANCE_REVIEW_CONTRACT}
+${EXECUTION_ACCEPTANCE_CONTRACT}
 
 **Output**
 
-Include a compact scorecard for obligation coverage and deterministic gates, followed by the architecture-conformance matrix and evidence-complete findings. Cite concrete files, traces, commands, and observed results. If there are no blockers, say \`ready to archive\`; otherwise state the exact blocking classes and repairs. Never soften a blocker into a warning, and never promote a deferred observation into a blocker.`;
+Include a compact scorecard for obligation coverage and deterministic gates, followed by the architecture-conformance matrix and evidence-complete findings. Cite concrete files, traces, commands, and observed results. If there are no blockers, say \`execution acceptance passed; ready for user review\`; otherwise state the exact blocking classes and repairs. Never soften a blocker into a warning, and never promote a deferred observation into a blocker.`;
 }
 
 export function getVerifyChangeSkillTemplate(): SkillTemplate {

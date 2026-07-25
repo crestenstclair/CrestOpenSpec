@@ -88,7 +88,8 @@ openspec update
 When you know what you want to build and just need to execute:
 
 ```text
-/opsx:new ──► /opsx:ff ──► /opsx:apply ──► /opsx:verify ──► /opsx:archive
+/opsx:new ──► /opsx:ff ──► /opsx:apply + end-of-execute acceptance ──► user review ──► /opsx:archive
+                                      └── optional explicit /opsx:verify
 ```
 
 **Example conversation:**
@@ -114,7 +115,8 @@ AI:  Working through tasks...
      ✓ Added logout button to header
      ✓ Implemented session clearing
      ✓ Added confirmation dialog
-     All tasks complete!
+     ✓ End-of-execute semantic and deterministic acceptance
+     Implementation complete — ready for your review
 
 You: /opsx:archive
 
@@ -203,7 +205,8 @@ You: /opsx:apply
 
 AI:  Working on fix-login-redirect...
      [Implements the fix]
-     All tasks complete!
+     ✓ End-of-execute acceptance
+     Implementation complete — ready for your review
 
 You: /opsx:archive
 
@@ -224,32 +227,32 @@ When you have multiple completed changes, use `/opsx:bulk-archive`:
 ```text
 You: /opsx:bulk-archive
 
-AI:  Change               Semantic  Deterministic  Eligibility
-     add-dark-mode        pass      pass           eligible
-     fix-login-redirect   pass      fail           blocked
-     update-footer        pass      pass           eligible
+AI:  Change               Tasks   Spec overlap
+     add-dark-mode        7/7     specs/ui
+     fix-login-redirect   4/4     none
+     update-footer        3/3     specs/ui
 
-     Spec overlap: add-dark-mode and update-footer both touch specs/ui/
-     Archive the 2 independently eligible changes?
+     Which exact subset and ordering do you approve for archive?
 
 You: Yes
 
 AI:  ✓ Archived add-dark-mode
      ✓ Archived update-footer
-     Blocked: fix-login-redirect (targeted validation selected zero tests)
+     Not selected: fix-login-redirect
 ```
 
-Bulk archive reports spec overlap as coordination context, evaluates each change independently, and delegates every eligible mutation to core archive. Evidence or confirmation for one change never rehabilitates another.
+Bulk archive reports completion and spec overlap as coordination context, then delegates each approved mutation to core archive. It does not repeat the acceptance already performed at the end of each execute/apply run.
 
 ### Completing a Change
 
 The recommended completion flow:
 
 ```text
-/opsx:apply ──► /opsx:verify ──► /opsx:archive
-                    │                 │
-              semantic review    reruns deterministic gates,
-              + deterministic    then updates and moves
+/opsx:apply ──► end-of-execute acceptance ──► user review ──► /opsx:archive
+                         │                                      │
+                 semantic + deterministic                approve, update, move
+
+/opsx:verify = optional explicit rerun when another functional review is wanted
 ```
 
 #### Verify: Check Your Work
@@ -268,7 +271,7 @@ AI:  Semantic review
      ✓ CUE and strict OpenSpec validation
      ✓ 3/3 executable validations, including targeted tests
 
-     Ready to archive: Yes — both layers passed
+     Execution acceptance passed — ready for user review
 ```
 
 **What verify checks:**
@@ -278,7 +281,7 @@ AI:  Semantic review
 | Semantic | Current/evergreen architecture through production composition, runtime behavior, and witnesses |
 | Deterministic | CUE, strict OpenSpec material, declared invocations, assertions, selectors, and nonzero test execution |
 
-Applicable semantic blockers or deterministic failures withhold readiness. Missing deferred functionality is explicitly non-blocking.
+Applicable semantic blockers or deterministic failures keep execute/apply incomplete. Missing deferred functionality is explicitly non-blocking. The normal apply workflow runs this same contract automatically after its final task; verify is the deliberate rerun.
 
 #### Archive: Finalize the Change
 
@@ -287,18 +290,17 @@ Applicable semantic blockers or deterministic failures withhold readiness. Missi
 ```text
 You: /opsx:archive
 
-AI:  Semantic acceptance: pass
-     Deterministic acceptance: pass
-     → Archive this eligible change?
+AI:  Tasks complete: 7/7
+     Planned spec update: specs/auth/spec.md
+     → Archive this reviewed change?
 
 You: Yes
 
-AI:  ✓ Core archive reran deterministic acceptance
-     ✓ Synced specs to openspec/specs/auth/spec.md
+AI:  ✓ Synced specs to openspec/specs/auth/spec.md
      ✓ Moved to openspec/changes/archive/2025-01-24-add-auth/
 ```
 
-Core archive runs applicable deterministic gates before any spec write or move. Confirmation, `--yes`, `--skip-specs`, and `--no-validate` cannot override a failed gate; projects without the declaration retain legacy archive behavior. See [Acceptance Gates](acceptance.md).
+Archive does not rerun implementation acceptance. It is the user-approved record mutation after functionality has already been reviewed; `--yes`, `--skip-specs`, and `--no-validate` retain their ordinary archive meanings. See [Acceptance Gates](acceptance.md).
 
 ## When to Use What
 
@@ -394,9 +396,9 @@ AI:  Let me investigate your current setup and options...
 
 Exploration clarifies thinking before you create artifacts.
 
-### Verify Before Archiving
+### Optional Explicit Re-verification
 
-Use `/opsx:verify` to check implementation matches artifacts:
+End-of-execute `/opsx:apply` already checks implementation against authority. Use `/opsx:verify` only when you want to rerun that review explicitly:
 
 ```text
 You: /opsx:verify
@@ -407,10 +409,10 @@ AI:  Verifying add-dark-mode...
      ✓ Requirements in specs have corresponding code
      ✓ Design decisions are reflected in implementation
 
-     Ready to archive!
+     Execution acceptance passed — ready for user review
 ```
 
-Catches mismatches before you close out the change.
+Catches mismatches without turning archive itself into another implementation ceremony.
 
 ### Name Changes Clearly
 

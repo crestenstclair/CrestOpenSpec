@@ -14,7 +14,7 @@ The `/opsx:verify` workflow SHALL run the deterministic acceptance service and S
 
 - **WHEN** CUE evaluation, strict OpenSpec validation, a declared command, an assertion, or required test evidence fails
 - **THEN** verification reports the failure as blocking
-- **AND** never reports `ready to archive`
+- **AND** never reports execution acceptance as passed
 
 #### Scenario: Deterministic gates pass
 
@@ -199,14 +199,14 @@ The agent SHALL produce a structured report that separates deterministic gates, 
 - **THEN** the report labels it `INFORMATIONAL_FUTURE_RISK`
 - **AND** does not count it as blocking
 
-#### Scenario: Ready for archive
+#### Scenario: Execution acceptance passes
 
 - **WHEN** every applicable deterministic gate passes and no applicable blocking semantic finding exists
-- **THEN** the report may state `ready to archive`
+- **THEN** the report states `execution acceptance passed; ready for user review`
 - **AND** explains that readiness combines two distinct evidence layers
 
 #### Scenario: Verification is blocked
 
 - **WHEN** any deterministic gate or applicable semantic finding blocks
-- **THEN** the report states that the change is not ready to archive
+- **THEN** the report states that execution acceptance remains incomplete
 - **AND** does not allow warnings, prose, or user confirmation to replace the failed proof

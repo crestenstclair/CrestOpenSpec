@@ -17,7 +17,7 @@ export { getArchiveChangeSkillTemplate, getOpsxArchiveCommandTemplate } from './
 export { getBulkArchiveChangeSkillTemplate, getOpsxBulkArchiveCommandTemplate } from './workflows/bulk-archive-change.js';
 export { getVerifyChangeSkillTemplate, getOpsxVerifyCommandTemplate } from './workflows/verify-change.js';
 export {
-  ACCEPTANCE_REVIEW_CONTRACT,
+  EXECUTION_ACCEPTANCE_CONTRACT,
   ARCHITECTURE_DRIFT_GUARD_IDS,
   type ArchitectureDriftGuardId,
 } from './workflows/acceptance-review.js';

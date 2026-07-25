@@ -317,7 +317,7 @@ Acceptance SHALL select test evidence only by explicit validation metadata throu
 
 - **WHEN** support for another test runner is added
 - **THEN** only a provider implementation and registration are required
-- **AND** acceptance orchestration, archive enforcement, report models, and CUE/OpenSpec semantics remain unchanged
+- **AND** acceptance orchestration, end-of-execute workflow integration, report models, and CUE/OpenSpec semantics remain unchanged
 
 #### Scenario: Neutral structured evidence provider
 
@@ -359,7 +359,7 @@ Acceptance evidence SHALL remain transient, and repository-declared commands SHA
 
 #### Scenario: Run explicit acceptance
 
-- **WHEN** a user invokes acceptance or an archive operation governed by acceptance
+- **WHEN** a user invokes acceptance directly or an execute/apply workflow invokes it at completion
 - **THEN** OpenSpec may run declared project checks and applicable attached test validations in the foreground
 - **AND** returns evidence for that invocation only
 

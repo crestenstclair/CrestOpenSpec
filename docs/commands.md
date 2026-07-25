@@ -287,6 +287,8 @@ Implement tasks from the change. Works through the task list, writing code and c
 - Works through tasks one by one
 - Writes code, creates files, runs tests as needed
 - Marks tasks complete with checkboxes `[x]`
+- After every task is complete, runs the shared semantic review and deterministic `openspec acceptance` report
+- Keeps execute/apply incomplete when acceptance finds a blocker, so repairs happen in the active implementation loop
 
 **Example:**
 ```
@@ -309,12 +311,19 @@ AI:  Implementing add-dark-mode...
 
      ✓ 1.2 Complete
      ...
+
+     End-of-execute acceptance:
+     ✓ Semantic conformance
+     ✓ Deterministic gates
+     Implementation complete — ready for your review
 ```
 
 **Tips:**
 - Can resume where you left off if interrupted
 - Use for parallel changes by specifying the change name
 - Completion state is tracked in `tasks.md` checkboxes
+- Starting apply with all tasks already complete still runs end-of-execute acceptance
+- Archive does not rerun this acceptance work
 
 ---
 
@@ -387,7 +396,7 @@ Run both acceptance layers for a change: evidence-backed semantic conformance re
 - Builds an architecture-conformance matrix across production composition, runtime preparation, asynchronous failure, end-to-end observability, and validation declarations
 - Requires evidence-complete findings; keyword suspicion and missing deferred scope are not violations
 - Runs `openspec acceptance <change-name> --json` and keeps its result separate from semantic findings
-- Reports `ready to archive` only when both layers pass
+- Reports `execution acceptance passed; ready for user review` only when both layers pass
 
 **Blocking classes:**
 
@@ -413,7 +422,7 @@ AI:  Evaluated CUE first and classified current obligations.
      ✓ validation.all (12 tests executed)
      ✓ validation.theme-resource (2 targeted tests executed)
 
-     Ready to archive: Yes — both evidence layers passed.
+     Execution acceptance passed — ready for user review.
 ```
 
 **Tips:**
@@ -483,7 +492,7 @@ AI:  Syncing add-dark-mode delta specs...
 
 ### `/opsx:archive`
 
-Adversarially review a completed change, then invoke core archive only after semantic and deterministic acceptance pass.
+Archive a completed, reviewed change after user approval without repeating implementation acceptance.
 
 **Syntax:**
 ```
@@ -496,40 +505,37 @@ Adversarially review a completed change, then invoke core archive only after sem
 | `change-name` | No | Which change to archive (inferred from context if not provided) |
 
 **What it does:**
-- Reads evaluated CUE and applies the same phase-aware semantic contract as `/opsx:verify`
-- Runs deterministic acceptance and preserves the complete result
-- Assesses the intended delta-spec update without writing or moving files itself
-- Invokes core `openspec archive` only when both layers pass
-- Relies on core archive to rerun deterministic gates immediately before mutation
+- Resolves the exact change and summarizes artifact/task completion
+- Shows the intended delta-spec and archive effect
+- Treats archive as user approval of already reviewed functionality
+- Invokes core `openspec archive` after approval
+- Does not rerun semantic or deterministic acceptance
 
 **Example:**
 ```text
 You: /opsx:archive
 
-AI:  Semantic acceptance: pass
-     Deterministic acceptance: pass (2/2 validations executed)
+AI:  Change complete: 7/7 tasks
      Planned spec update: ui/theme requirement added
-     Archive this eligible change?
+     Archive this reviewed change?
 
 You: Yes
 
-AI:  Core archive reran acceptance: pass
-     ✓ Specs updated
+AI:  ✓ Specs updated
      ✓ Archived to openspec/changes/archive/2025-01-24-add-dark-mode/
 ```
 
 **Tips:**
-- User confirmation and `--yes`, `--skip-specs`, or `--no-validate` cannot override applicable blockers
-- A deterministic failure occurs before canonical-spec writes or archive moves
-- Projects without the CUE gate declaration keep legacy archive behavior
 - Archived changes are preserved for history
-- Use `/opsx:verify` first when you want the full report without archiving
+- End-of-execute `/opsx:apply` owns normal functional acceptance
+- Use `/opsx:verify` only when you deliberately want another full review before deciding whether to approve archive
+- Archive flags retain their normal validation, confirmation, and spec-update meanings
 
 ---
 
 ### `/opsx:bulk-archive`
 
-Review multiple changes independently and archive only the eligible subset.
+Archive an explicitly approved subset of completed changes.
 
 **Syntax:**
 ```
@@ -542,36 +548,34 @@ Review multiple changes independently and archive only the eligible subset.
 | `change-names` | No | Specific changes to archive (prompts to select if not provided) |
 
 **What it does:**
-- Reads each change's evaluated CUE context before its artifacts
-- Applies the complete semantic contract and deterministic acceptance independently per change
-- Reports blockers, deferred observations, delta-spec overlap, and eligibility per change
-- Offers only passing changes for confirmation
-- Invokes core archive separately for each eligible change and continues through independent failures
+- Summarizes artifact/task completion and delta-spec overlap for each selected change
+- Asks once for the exact approved subset and ordering
+- Does not rerun implementation acceptance
+- Invokes core archive separately for each approved change and continues through independent failures
 
 **Example:**
 ```
 You: /opsx:bulk-archive
 
-AI:  Change             Semantic  Deterministic  Eligibility
-     add-dark-mode      pass      pass           eligible
-     fix-login-bug      block     pass           blocked
-     update-footer      pass      pass           eligible
+AI:  Change             Tasks   Spec overlap
+     add-dark-mode      7/7     specs/ui
+     fix-login-bug      4/4     none
+     update-footer      3/3     specs/ui
 
-     Deferred observations are listed separately and do not affect eligibility.
-     Archive the 2 eligible changes?
+     Which exact subset and ordering do you approve for archive?
 
-You: Yes
+You: Archive add-dark-mode, then update-footer. Leave fix-login-bug active.
 
 AI:  ✓ Archived add-dark-mode
      ✓ Archived update-footer
-     Blocked: fix-login-bug (production caller discards typed failure)
+     Not selected: fix-login-bug
 ```
 
 **Tips:**
 - Good for parallel work streams
-- A passing change's evidence never satisfies another change
-- Spec overlap is a coordination fact, not proof that either implementation conforms
-- Partial success never makes a blocked change eligible
+- Spec overlap helps choose a safe archive ordering
+- A core failure for one approved change does not stop independent later attempts
+- Use explicit `/opsx:verify` before approval when another functional review is wanted
 
 ---
 

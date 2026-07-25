@@ -1,9 +1,8 @@
 import type { SkillTemplate, CommandTemplate } from '../types.js';
-import { ACCEPTANCE_REVIEW_CONTRACT } from './acceptance-review.js';
 import { STORE_SELECTION_GUIDANCE } from './store-selection.js';
 
 function bulkArchiveInstructions(input: string): string {
-  return `Review several OpenSpec changes independently and archive only the eligible subset.
+  return `Archive an approved subset of previously reviewed OpenSpec changes.
 
 ${STORE_SELECTION_GUIDANCE}
 
@@ -11,25 +10,23 @@ ${STORE_SELECTION_GUIDANCE}
 
 **Workflow**
 
-1. Run \`openspec list --json\` with the selected store flag and ask the user which active changes to review. Never auto-select; one or more selections are valid.
-2. For each selected change independently, run \`openspec status --change "<name>" --json\` and \`openspec instructions apply --change "<name>" --json\` with the selected store flag. Read that change's evaluated \`context\` before its artifacts.
-3. Apply the complete shared adversarial acceptance review below independently to each change. Do not let evidence, applicability, a broad suite, or a passing result for one change satisfy another.
-4. Build a table with semantic status, deterministic status, blocking classes, deferred observations, delta-spec overlap, and final eligibility for every selected change. A spec overlap is a coordination fact, not proof of implementation; resolve ordering only from current authority and evidence.
-5. Ask once which eligible changes to archive. Blocked changes are not offered as overrideable choices.
-6. For every confirmed eligible change, invoke \`openspec archive "<name>" --yes\` with the selected store flag. Never move directories or write canonical specs directly. Core archive reruns deterministic acceptance immediately before mutation.
-7. Continue through independent failures and report archived, failed, and acceptance-blocked changes separately. Partial success never turns a failed change into an archive candidate.
+1. Run \`openspec list --json\` with the selected store flag and ask the user which active changes they approve for archive. Never auto-select; one or more selections are valid.
+2. For each selected change, run \`openspec status --change "<name>" --json\` with the selected store flag and summarize artifact/task completion plus delta-spec overlap.
+3. Ask once for the exact subset and ordering to archive. Treat this as approval of already reviewed functionality, not an invitation to repeat implementation acceptance.
+4. For every confirmed change, invoke \`openspec archive "<name>" --yes\` with the selected store flag. Never move directories or write canonical specs directly.
+5. Continue through independent core archive failures and report archived and failed changes separately.
 
-${ACCEPTANCE_REVIEW_CONTRACT}
+Acceptance belongs at the end of each execute/apply run. Do not run the shared adversarial review or \`openspec acceptance\` during bulk archive. If the user requests renewed functional review for a change, run \`/opsx:verify\` separately before asking whether to include it in the approved archive subset.
 
 **Output**
 
-Show one evidence-backed eligibility row per change, then the confirmed eligible subset. Finish with separate archived, failed, blocked, and non-blocking deferred sections. Include the core archive result for each attempted change.`;
+Show one completion/overlap row per change, then the confirmed subset and order. Finish with separate archived and failed sections and include the core archive result for each attempted change.`;
 }
 
 export function getBulkArchiveChangeSkillTemplate(): SkillTemplate {
   return {
     name: 'openspec-bulk-archive-change',
-    description: 'Adversarially review multiple changes and archive only the independently eligible subset.',
+    description: 'Archive a user-approved subset of completed changes without rerunning implementation acceptance.',
     instructions: bulkArchiveInstructions('None required; always prompt for one or more active changes.'),
     license: 'MIT',
     compatibility: 'Requires openspec CLI.',
@@ -40,7 +37,7 @@ export function getBulkArchiveChangeSkillTemplate(): SkillTemplate {
 export function getOpsxBulkArchiveCommandTemplate(): CommandTemplate {
   return {
     name: 'OPSX: Bulk Archive',
-    description: 'Review multiple changes and archive only independently eligible ones',
+    description: 'Archive a user-approved subset of completed changes',
     category: 'Workflow',
     tags: ['workflow', 'archive', 'experimental', 'bulk'],
     content: bulkArchiveInstructions('None required; always prompt for one or more active changes.'),

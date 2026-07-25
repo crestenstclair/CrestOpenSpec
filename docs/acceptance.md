@@ -3,9 +3,9 @@
 OpenSpec acceptance has two deliberately separate layers:
 
 1. **Deterministic acceptance** is core CLI code. It evaluates CUE, strictly validates OpenSpec material, executes every applicable declared validation, checks assertions and test evidence, and returns an enforceable exit status.
-2. **Adversarial semantic review** is the shared agent workflow used by `/opsx:verify`, `/opsx:archive`, and `/opsx:bulk-archive`. It traces architecture through production composition and behavior. CLI success never claims that this semantic review passed.
+2. **Adversarial semantic review** is the shared agent workflow used at the end of `/opsx:apply` and by explicit `/opsx:verify`. It traces architecture through production composition and behavior. CLI success never claims that this semantic review passed.
 
-Both layers must pass before an agent reports a governed change ready to archive.
+Both layers must pass before an agent reports the execute/apply phase complete. Archive happens later, after user review and approval, without repeating acceptance.
 
 ## Running deterministic acceptance
 
@@ -24,7 +24,7 @@ openspec acceptance add-dark-mode --store team-plans --json
 
 A change name and `--project`/`--release` are mutually exclusive. JSON mode prints exactly one versioned report. Any mandatory failure sets a nonzero exit status. The report always states that semantic conformance was not evaluated by the deterministic command.
 
-Normal reads remain non-executing: `list`, `context`, `status`, `instructions`, planning, ordinary progress reads, and static `validate` do not run repository-declared commands. Only an explicit command-running workflow such as `acceptance` or `archive` does so.
+Normal reads and archive remain non-executing with respect to repository-declared validations: `list`, `context`, `status`, `instructions`, planning, ordinary progress reads, static `validate`, and `archive` do not run them. Direct `acceptance`, end-of-execute apply, and explicit verify are the command-running workflows.
 
 ## When the gate applies
 
@@ -33,7 +33,7 @@ The CLI evaluates the complete top-level `spec/*.cue` package. Executable accept
 - `completion.projectChecks`, including an explicitly empty array; or
 - an attached validation with a `proof` field.
 
-No CUE package, or valid CUE containing neither declaration form, reports deterministic execution as `not_applicable` and retains legacy archive behavior. CUE evaluation failure and malformed declared contracts fail closed.
+No CUE package, or valid CUE containing neither declaration form, reports deterministic execution as `not_applicable`. CUE evaluation failure and malformed declared contracts fail closed.
 
 ## Language-neutral declaration schema
 
@@ -161,15 +161,15 @@ The evidence selector must deep-equal the declaration's opaque selector. A count
 }
 ```
 
-Runner-specific parsing belongs in a provider. Adding another runner requires implementing and registering a `TestEvidenceProvider`; it does not change acceptance orchestration, archive logic, CUE resolution, or the report model. No provider is inferred from command names, filenames, or output prose.
+Runner-specific parsing belongs in a provider. Adding another runner requires implementing and registering a `TestEvidenceProvider`; it does not change acceptance orchestration, execute/archive workflow logic, CUE resolution, or the report model. No provider is inferred from command names, filenames, or output prose.
 
-## Archive enforcement
+## End-of-execute enforcement
 
-Core `openspec archive` runs deterministic acceptance immediately after resolving the root and active change, before validation prompts, task confirmation, spec preparation or writes, archive-directory creation, or moving the change.
+When `/opsx:apply` completes its final implementation task, it performs the semantic review and runs `openspec acceptance <change-name> --json`. The same happens when apply starts in `all_done` state, so a completed task list cannot skip final proof.
 
-When acceptance is applicable and fails, archive returns nonzero and includes the complete report. `--yes`, incomplete-task confirmation, warning acceptance, `--skip-specs`, and `--no-validate` cannot bypass it. A failed gate leaves canonical specs, the active change, and the archive target unchanged.
+If either layer blocks, execute/apply remains incomplete and repairs stay in the active implementation loop. If implementation pauses with tasks remaining, final acceptance does not run. Explicit `/opsx:verify` can rerun the same contract later when the user deliberately requests another review.
 
-For an inapplicable legacy project, those flags keep their existing meaning. For a governed passing project, they can still control legacy prompts or optional spec behavior after mandatory acceptance has passed.
+`/opsx:archive`, bulk archive, and core `openspec archive` do not rerun acceptance. They summarize completion and spec effects, obtain user approval, and perform the ordinary validation/spec/archive operation. Archive flags retain their documented meanings; archive approval is not represented as new functional evidence.
 
 ## Adversarial semantic review
 
