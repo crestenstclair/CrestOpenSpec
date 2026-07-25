@@ -18,6 +18,10 @@ import type { ReferenceIndexEntry } from '../references.js';
 import type { PlanningHome } from '../planning-home.js';
 import type { ChangeMetadata } from '../change-metadata/index.js';
 import type { Artifact, CompletedSet } from './types.js';
+import {
+  loadCueArchitecture,
+  renderCueArchitectureContext,
+} from '../cue-architecture.js';
 
 // Session-level cache for validation warnings (avoid repeating same warnings)
 const shownWarnings = new Set<string>();
@@ -316,8 +320,21 @@ export function generateInstructions(
     }
   }
 
-  // Extract context and rules as separate fields (not prepended to template)
-  const configContext = projectConfig?.context?.trim() || undefined;
+  // Evaluate CUE in memory and inject its resolved semantics and relationship
+  // index. The source package remains the only architecture state to edit.
+  const cueArchitecture = effectiveProjectRoot
+    ? loadCueArchitecture(effectiveProjectRoot)
+    : undefined;
+  const cueContext = cueArchitecture
+    ? renderCueArchitectureContext(cueArchitecture)
+    : undefined;
+
+  // Extract context and rules as separate fields (not prepended to template).
+  // User-authored context remains first; authoritative architecture follows.
+  const configContext =
+    [projectConfig?.context?.trim(), cueContext]
+      .filter((value): value is string => Boolean(value))
+      .join('\n\n') || undefined;
   const rulesForArtifact = projectConfig?.rules?.[artifactId];
   const configRules = rulesForArtifact && rulesForArtifact.length > 0 ? rulesForArtifact : undefined;
 

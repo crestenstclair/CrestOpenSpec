@@ -36,6 +36,10 @@ import {
 import { readRegistrySnapshot } from '../../core/store/registry.js';
 import { readProjectConfig, type ProjectConfig } from '../../core/project-config.js';
 import {
+  loadCueArchitecture,
+  renderCueArchitectureContext,
+} from '../../core/cue-architecture.js';
+import {
   validateChangeExists,
   validateSchemaExists,
   type TaskItem,
@@ -321,6 +325,7 @@ function parseTasksFile(content: string): TaskItem[] {
 export interface GenerateApplyInstructionsOptions {
   planningHome?: PlanningHome;
   references?: ReferenceIndexEntry[];
+  projectConfig?: ProjectConfig | null;
 }
 
 /**
@@ -337,6 +342,10 @@ export async function generateApplyInstructions(
   const planningHome =
     options.planningHome ?? resolveCurrentPlanningHomeSync({ startPath: projectRoot });
   const references = options.references;
+  const projectConfig =
+    options.projectConfig === undefined
+      ? readProjectConfig(projectRoot)
+      : options.projectConfig;
   // loadChangeContext will auto-detect schema from metadata if not provided
   const context = loadChangeContext(projectRoot, changeName, schemaName, {
     changeDir: getChangeDir(planningHome, changeName),
@@ -371,6 +380,20 @@ export async function generateApplyInstructions(
       contextFiles[artifact.id] = outputs;
     }
   }
+
+  // CUE is evaluated in memory for relational understanding while the source
+  // files remain the only architecture state agents should edit.
+  const cueArchitecture = loadCueArchitecture(projectRoot);
+  if (cueArchitecture) {
+    contextFiles.cue = cueArchitecture.files;
+  }
+  const cueContext = cueArchitecture
+    ? renderCueArchitectureContext(cueArchitecture)
+    : undefined;
+  const projectContext =
+    [projectConfig?.context?.trim(), cueContext]
+      .filter((value): value is string => Boolean(value))
+      .join('\n\n') || undefined;
 
   // Parse tasks if tracking file exists
   let tasks: TaskItem[] = [];
@@ -422,6 +445,7 @@ export async function generateApplyInstructions(
     changeName,
     changeDir,
     schemaName: context.schemaName,
+    ...(projectContext ? { context: projectContext } : {}),
     contextFiles,
     progress: { total, complete, remaining },
     tasks,
@@ -457,10 +481,11 @@ export async function applyInstructionsCommand(options: ApplyInstructionsOptions
     }
 
     // generateApplyInstructions uses loadChangeContext which auto-detects schema
-    const { references } = await loadRootConfigContext(root);
+    const { projectConfig, references } = await loadRootConfigContext(root);
     const instructions = await generateApplyInstructions(projectRoot, changeName, options.schema, {
       planningHome,
       references,
+      projectConfig,
     });
 
     spinner?.stop();
@@ -478,11 +503,27 @@ export async function applyInstructionsCommand(options: ApplyInstructionsOptions
 }
 
 export function printApplyInstructionsText(instructions: ApplyInstructions): void {
-  const { changeName, schemaName, contextFiles, progress, tasks, state, missingArtifacts, instruction } = instructions;
+  const {
+    changeName,
+    schemaName,
+    context,
+    contextFiles,
+    progress,
+    tasks,
+    state,
+    missingArtifacts,
+    instruction,
+  } = instructions;
 
   console.log(`## Apply: ${changeName}`);
   console.log(`Schema: ${schemaName}`);
   console.log();
+
+  if (context) {
+    console.log('### Project Context');
+    console.log(context);
+    console.log();
+  }
 
   if (instructions.references && instructions.references.length > 0) {
     console.log(renderReferencedStoresSection(instructions.references));

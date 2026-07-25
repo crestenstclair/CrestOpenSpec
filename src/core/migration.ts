@@ -19,6 +19,8 @@ import * as fs from 'fs';
  * to the tool's current skillsDir; user files are never touched.
  */
 export const LEGACY_SKILLS_DIRS: Record<string, string[]> = {
+  // Codex standardized repository skills under .agents/skills.
+  codex: ['.codex'],
   // Kimi CLI became Kimi Code and moved from .kimi to .kimi-code
   kimi: ['.kimi'],
 };

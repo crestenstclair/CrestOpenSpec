@@ -44,6 +44,7 @@ ${STORE_SELECTION_GUIDANCE}
    \`\`\`
 
    This returns:
+   - \`context\`: project guidance and, when present, the evaluated CUE architecture with its relationship index
    - \`contextFiles\`: artifact ID -> array of concrete file paths (varies by schema - could be proposal/specs/design/tasks or spec/tests/implementation/docs)
    - Progress (total, complete, remaining)
    - Task list with status
@@ -54,8 +55,9 @@ ${STORE_SELECTION_GUIDANCE}
    - If \`state: "all_done"\`: congratulate, suggest archive
    - Otherwise: proceed to implementation
 
-4. **Read context files**
+4. **Read project context and context files**
 
+   Read and follow \`context\` first. When it contains a CUE architecture, treat the resolved model and relationships as authoritative constraints on implementation; edit the listed CUE sources only when the planned architecture itself changes.
    Read every file path listed under \`contextFiles\` from the apply instructions output.
    The files depend on the schema being used:
    - **spec-driven**: proposal, specs, design, tasks
@@ -204,6 +206,7 @@ ${STORE_SELECTION_GUIDANCE}
    \`\`\`
 
    This returns:
+   - \`context\`: project guidance and, when present, the evaluated CUE architecture with its relationship index
    - \`contextFiles\`: artifact ID -> array of concrete file paths (varies by schema)
    - Progress (total, complete, remaining)
    - Task list with status
@@ -214,8 +217,9 @@ ${STORE_SELECTION_GUIDANCE}
    - If \`state: "all_done"\`: congratulate, suggest archive
    - Otherwise: proceed to implementation
 
-4. **Read context files**
+4. **Read project context and context files**
 
+   Read and follow \`context\` first. When it contains a CUE architecture, treat the resolved model and relationships as authoritative constraints on implementation; edit the listed CUE sources only when the planned architecture itself changes.
    Read every file path listed under \`contextFiles\` from the apply instructions output.
    The files depend on the schema being used:
    - **spec-driven**: proposal, specs, design, tasks

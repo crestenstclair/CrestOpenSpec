@@ -144,6 +144,12 @@ Now talk to your AI:
 
 Both are in the default profile. If you want the expanded workflow (`/opsx:new`, `/opsx:continue`, `/opsx:ff`, `/opsx:verify`, `/opsx:bulk-archive`, `/opsx:onboard`), select it with `openspec config profile` and apply with `openspec update`.
 
+### CUE architecture
+
+This fork treats the top-level `spec/*.cue` package as the project's authoritative architecture. Before proposal, design, specification, task, exploration, and apply work, OpenSpec evaluates those files as one CUE package rooted at `project`. It injects the resolved project plus a deterministic relationship index into the agent's native project-context channel, while also identifying the original CUE sources.
+
+The rendering is transient and exists only while instructions are assembled. There is no generated architecture export or database to synchronize. Edit the CUE files directly; OpenSpec consumes them in place and fails planning when they conflict or cannot resolve to concrete values.
+
 > [!NOTE]
 > Not sure if your tool is supported? [View the full list](docs/supported-tools.md) – we support 25+ tools and growing.
 >

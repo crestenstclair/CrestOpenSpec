@@ -334,13 +334,28 @@ describe('InitCommand', () => {
         const initCommand = new InitCommand({ tools: 'codex', force: true });
         await initCommand.execute(testDir);
 
-        const skillFile = path.join(testDir, '.codex', 'skills', 'openspec-explore', 'SKILL.md');
+        const skillFile = path.join(testDir, '.agents', 'skills', 'openspec-explore', 'SKILL.md');
         expect(await fileExists(skillFile)).toBe(true);
 
         const promptFile = path.join(process.env.CODEX_HOME!, 'prompts', 'opsx-explore.md');
         expect(await fileExists(promptFile)).toBe(false);
       }
     );
+
+    it('should migrate OpenSpec skills from legacy .codex to .agents during init', async () => {
+      const legacySkillDir = path.join(testDir, '.codex', 'skills', 'openspec-explore');
+      await fs.mkdir(legacySkillDir, { recursive: true });
+      await fs.writeFile(path.join(legacySkillDir, 'SKILL.md'), 'old Codex skill');
+      await fs.writeFile(path.join(testDir, '.codex', 'config.toml'), 'user config');
+
+      const initCommand = new InitCommand({ tools: 'codex', force: true });
+      await initCommand.execute(testDir);
+
+      const currentSkill = path.join(testDir, '.agents', 'skills', 'openspec-explore', 'SKILL.md');
+      expect(await fileExists(currentSkill)).toBe(true);
+      expect(await directoryExists(legacySkillDir)).toBe(false);
+      expect(await fileExists(path.join(testDir, '.codex', 'config.toml'))).toBe(true);
+    });
 
     it('should create skills for multiple tools at once', async () => {
       const initCommand = new InitCommand({ tools: 'claude,cursor', force: true });
@@ -742,7 +757,7 @@ describe('InitCommand - profile and detection features', () => {
 
     expect(await fileExists(legacyPrompt)).toBe(false);
     expect(await fileExists(
-      path.join(testDir, '.codex', 'skills', 'openspec-apply-change', 'SKILL.md')
+      path.join(testDir, '.agents', 'skills', 'openspec-apply-change', 'SKILL.md')
     )).toBe(true);
   });
 
@@ -757,10 +772,10 @@ describe('InitCommand - profile and detection features', () => {
 
     expect(await fileExists(legacyPrompt)).toBe(true);
     expect(await fileExists(
-      path.join(testDir, '.codex', 'skills', 'openspec-explore', 'SKILL.md')
+      path.join(testDir, '.agents', 'skills', 'openspec-explore', 'SKILL.md')
     )).toBe(true);
     expect(await fileExists(
-      path.join(testDir, '.codex', 'skills', 'openspec-onboard', 'SKILL.md')
+      path.join(testDir, '.agents', 'skills', 'openspec-onboard', 'SKILL.md')
     )).toBe(false);
   });
 

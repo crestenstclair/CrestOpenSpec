@@ -26,6 +26,11 @@ import { COMMAND_REGISTRY } from '../core/completions/command-registry.js';
 import { COMMON_FLAGS } from '../core/completions/shared-flags.js';
 import { emitFailure, printJson } from './shared-output.js';
 import { gatherRelationshipData } from './shared-gather.js';
+import {
+  CUE_INTERPRETATION_CONTRACT,
+  loadCueArchitecture,
+  type CueArchitecture,
+} from '../core/cue-architecture.js';
 
 const FAILURE_PAYLOAD = { root: null, members: [] };
 
@@ -59,7 +64,11 @@ function memberLine(member: WorkingSetMember): string {
   return `  ${member.id}  ${member.path}`;
 }
 
-function printHumanWorkingSet(workingSet: WorkingSet, declaredReferenceCount: number): void {
+function printHumanWorkingSet(
+  workingSet: WorkingSet,
+  declaredReferenceCount: number,
+  architecture?: CueArchitecture
+): void {
   const rootLabel = workingSet.root.store_id ?? path.basename(workingSet.root.path);
   console.log(`Working context for ${rootLabel} (${workingSet.root.path})`);
   console.log('');
@@ -114,6 +123,14 @@ function printHumanWorkingSet(workingSet: WorkingSet, declaredReferenceCount: nu
         console.log(`  Fix: ${diagnostic.fix}`);
       }
     }
+  }
+
+  if (architecture) {
+    console.log('');
+    console.log('CUE architecture');
+    console.log(`  Package: ${architecture.root}`);
+    console.log(`  Sources: ${architecture.files.length}`);
+    console.log(`  Relationships: ${architecture.relationships.length}`);
   }
 }
 
@@ -190,6 +207,20 @@ export function registerContextCommand(program: Command): void {
           }
 
           const { workingSet, declaredReferenceCount } = await gatherWorkingSet(root);
+          const cueArchitecture = loadCueArchitecture(root.path);
+          const output = cueArchitecture
+            ? {
+                ...workingSet,
+                architecture: {
+                  kind: 'cue',
+                  root: cueArchitecture.root,
+                  files: cueArchitecture.files,
+                  interpretation: CUE_INTERPRETATION_CONTRACT,
+                  project: cueArchitecture.project,
+                  relationships: cueArchitecture.relationships,
+                },
+              }
+            : workingSet;
 
           if (options.json) {
             // The write runs FIRST: a write failure must leave stdout
@@ -197,9 +228,9 @@ export function registerContextCommand(program: Command): void {
             if (options.codeWorkspace) {
               writeCodeWorkspace(workingSet, options.codeWorkspace, options.force === true);
             }
-            printJson(workingSet);
+            printJson(output);
           } else {
-            printHumanWorkingSet(workingSet, declaredReferenceCount);
+            printHumanWorkingSet(workingSet, declaredReferenceCount, cueArchitecture);
             if (options.codeWorkspace) {
               writeCodeWorkspace(workingSet, options.codeWorkspace, options.force === true);
             }

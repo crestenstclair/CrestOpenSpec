@@ -1044,7 +1044,7 @@ ${OPENSPEC_MARKERS.end}
         delivery: 'commands',
       });
 
-      const skillsDir = path.join(testDir, '.codex', 'skills');
+      const skillsDir = path.join(testDir, '.agents', 'skills');
       await fs.mkdir(path.join(skillsDir, 'openspec-explore'), {
         recursive: true,
       });
@@ -1105,13 +1105,13 @@ ${OPENSPEC_MARKERS.end}
 
       expect(await FileSystemUtils.fileExists(managedPrompt)).toBe(false);
       expect(await FileSystemUtils.fileExists(
-        path.join(testDir, '.codex', 'skills', 'openspec-explore', 'SKILL.md')
+        path.join(testDir, '.agents', 'skills', 'openspec-explore', 'SKILL.md')
       )).toBe(true);
       expect(await FileSystemUtils.fileExists(
-        path.join(testDir, '.codex', 'skills', 'openspec-apply-change', 'SKILL.md')
+        path.join(testDir, '.agents', 'skills', 'openspec-apply-change', 'SKILL.md')
       )).toBe(false);
       expect(await FileSystemUtils.fileExists(
-        path.join(testDir, '.codex', 'skills', 'openspec-archive-change', 'SKILL.md')
+        path.join(testDir, '.agents', 'skills', 'openspec-archive-change', 'SKILL.md')
       )).toBe(false);
     });
 
@@ -1122,7 +1122,7 @@ ${OPENSPEC_MARKERS.end}
         delivery: 'skills',
       });
 
-      const skillsDir = path.join(testDir, '.codex', 'skills');
+      const skillsDir = path.join(testDir, '.agents', 'skills');
       await fs.mkdir(path.join(skillsDir, 'openspec-explore'), { recursive: true });
       await fs.writeFile(path.join(skillsDir, 'openspec-explore', 'SKILL.md'), 'old');
 
@@ -1136,7 +1136,7 @@ ${OPENSPEC_MARKERS.end}
 
       expect(await FileSystemUtils.fileExists(managedPrompt)).toBe(true);
       expect(await FileSystemUtils.fileExists(
-        path.join(testDir, '.codex', 'skills', 'openspec-onboard', 'SKILL.md')
+        path.join(testDir, '.agents', 'skills', 'openspec-onboard', 'SKILL.md')
       )).toBe(false);
     });
 
@@ -1147,7 +1147,7 @@ ${OPENSPEC_MARKERS.end}
         delivery: 'commands',
       });
 
-      const skillsDir = path.join(testDir, '.codex', 'skills');
+      const skillsDir = path.join(testDir, '.agents', 'skills');
       await fs.mkdir(path.join(skillsDir, 'openspec-explore'), { recursive: true });
       await fs.writeFile(path.join(skillsDir, 'openspec-explore', 'SKILL.md'), 'old');
 
@@ -1853,7 +1853,7 @@ More user content after markers.
           delivery,
         });
 
-        const skillsDir = path.join(testDir, '.codex', 'skills');
+        const skillsDir = path.join(testDir, '.agents', 'skills');
         await fs.mkdir(path.join(skillsDir, 'openspec-explore'), { recursive: true });
         await fs.writeFile(path.join(skillsDir, 'openspec-explore', 'SKILL.md'), 'old');
 
@@ -1876,7 +1876,7 @@ More user content after markers.
         delivery: 'both',
       });
 
-      const skillsDir = path.join(testDir, '.codex', 'skills');
+      const skillsDir = path.join(testDir, '.agents', 'skills');
       await fs.mkdir(path.join(skillsDir, 'openspec-explore'), { recursive: true });
       await fs.writeFile(path.join(skillsDir, 'openspec-explore', 'SKILL.md'), 'old');
 
@@ -1901,7 +1901,7 @@ More user content after markers.
         delivery: 'skills',
       });
 
-      const skillsDir = path.join(testDir, '.codex', 'skills');
+      const skillsDir = path.join(testDir, '.agents', 'skills');
       await fs.mkdir(path.join(skillsDir, 'openspec-explore'), { recursive: true });
       await fs.writeFile(path.join(skillsDir, 'openspec-explore', 'SKILL.md'), 'old');
 

@@ -34,6 +34,8 @@ export interface ApplyInstructions {
   changeName: string;
   changeDir: string;
   schemaName: string;
+  /** Project guidance, including the evaluated CUE architecture when present. */
+  context?: string;
   contextFiles: Record<string, string[]>;
   progress: {
     total: number;

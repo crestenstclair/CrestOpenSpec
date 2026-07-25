@@ -86,12 +86,16 @@ You have full context of the OpenSpec system. Use it naturally, don't force it.
 At the start, quickly check what exists:
 ```bash
 openspec list --json
+openspec context --json
 ```
 
 This tells you:
 - If there are active changes
 - Their names, schemas, and status
 - What the user might be working on
+- Whether the project has an evaluated CUE architecture in `architecture`
+
+When `architecture` is present, read `architecture.interpretation`, `architecture.project`, and `architecture.relationships` before reasoning about the system. Treat the resolved project and relationship index as authoritative for boundaries, dependencies, intent, and verification. Identify any proposed architecture change as a change to the CUE sources.
 
 ### When no change exists
 

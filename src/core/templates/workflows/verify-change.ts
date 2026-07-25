@@ -44,7 +44,7 @@ ${STORE_SELECTION_GUIDANCE}
    openspec instructions apply --change "<name>" --json
    \`\`\`
 
-   This returns the change directory and \`contextFiles\` (artifact ID -> array of concrete file paths). Read all available artifacts from \`contextFiles\`.
+   This returns the change directory, \`context\`, and \`contextFiles\` (artifact ID -> array of concrete file paths). Read \`context\` first, then all available artifacts from \`contextFiles\`. If \`context\` contains a CUE architecture, verify against its resolved model and relationship constraints.
 
 4. **Initialize verification report structure**
 
@@ -216,7 +216,7 @@ ${STORE_SELECTION_GUIDANCE}
    openspec instructions apply --change "<name>" --json
    \`\`\`
 
-   This returns the change directory and \`contextFiles\` (artifact ID -> array of concrete file paths). Read all available artifacts from \`contextFiles\`.
+   This returns the change directory, \`context\`, and \`contextFiles\` (artifact ID -> array of concrete file paths). Read \`context\` first, then all available artifacts from \`contextFiles\`. If \`context\` contains a CUE architecture, verify against its resolved model and relationship constraints.
 
 4. **Initialize verification report structure**
 

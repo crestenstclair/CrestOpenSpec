@@ -83,6 +83,8 @@ out
 
 # Build output
 dist/
+/bin/crest-cue-bridge
+/bin/crest-cue-bridge.exe
 
 # Gatsby files
 .cache/
