@@ -369,7 +369,7 @@ AI:  Reading add-dark-mode artifacts...
 
 ### `/opsx:verify`
 
-Validate that implementation matches your change artifacts. Checks completeness, correctness, and coherence.
+Run both acceptance layers for a change: evidence-backed semantic conformance review and the deterministic `openspec acceptance` report.
 
 **Syntax:**
 ```
@@ -382,56 +382,45 @@ Validate that implementation matches your change artifacts. Checks completeness,
 | `change-name` | No | Which change to verify (inferred from context if not provided) |
 
 **What it does:**
-- Checks three dimensions of implementation quality
-- Searches codebase for implementation evidence
-- Reports issues categorized as CRITICAL, WARNING, or SUGGESTION
-- Does not block archive, but surfaces issues
+- Reads evaluated CUE before artifacts or implementation
+- Classifies obligations as `CURRENT_SLICE`, `EVERGREEN_INVARIANT`, `DEFERRED_SCOPE`, or `UNAUTHORIZED_EARLY_SCOPE`
+- Builds an architecture-conformance matrix across production composition, runtime preparation, asynchronous failure, end-to-end observability, and validation declarations
+- Requires evidence-complete findings; keyword suspicion and missing deferred scope are not violations
+- Runs `openspec acceptance <change-name> --json` and keeps its result separate from semantic findings
+- Reports `ready to archive` only when both layers pass
 
-**Verification dimensions:**
+**Blocking classes:**
 
-| Dimension | What it validates |
-|-----------|-------------------|
-| **Completeness** | All tasks done, all requirements implemented, scenarios covered |
-| **Correctness** | Implementation matches spec intent, edge cases handled |
-| **Coherence** | Design decisions reflected in code, patterns consistent |
+| Class | Meaning |
+|-------|---------|
+| `BLOCKING_CURRENT_VIOLATION` | A production path contradicts the selected slice |
+| `BLOCKING_EVERGREEN_VIOLATION` | A production path contradicts an always-applicable architecture rule |
+| `BLOCKING_REQUIRED_PROOF_GAP` | Explicitly required current proof is missing or invalid |
+| `DEFERRED_NOT_APPLICABLE` | Later roadmap scope, reported separately and non-blocking |
+| `INFORMATIONAL_FUTURE_RISK` | Unproven future concern, reported separately and non-blocking |
 
 **Example:**
 ```
 You: /opsx:verify
 
-AI:  Verifying add-dark-mode...
+AI:  Evaluated CUE first and classified current obligations.
+     Semantic blockers: none
+     Deferred: preference migration (not applicable to this slice)
 
-     COMPLETENESS
-     ✓ All 8 tasks in tasks.md are checked
-     ✓ All requirements in specs have corresponding code
-     ⚠ Scenario "System preference detection" has no test coverage
+     Deterministic acceptance:
+     ✓ CUE architecture
+     ✓ strict OpenSpec validation
+     ✓ validation.all (12 tests executed)
+     ✓ validation.theme-resource (2 targeted tests executed)
 
-     CORRECTNESS
-     ✓ Implementation matches spec intent
-     ✓ Edge cases from scenarios are handled
-     ✓ Error states match spec definitions
-
-     COHERENCE
-     ✓ Design decisions reflected in code structure
-     ✓ Naming conventions consistent with design.md
-     ⚠ Design mentions "CSS variables" but implementation uses Tailwind classes
-
-     SUMMARY
-     ─────────────────────────────
-     Critical issues: 0
-     Warnings: 2
-     Ready to archive: Yes (with warnings)
-
-     Recommendations:
-     1. Add test for system preference detection
-     2. Update design.md to reflect Tailwind usage, or refactor to use CSS variables
+     Ready to archive: Yes — both evidence layers passed.
 ```
 
 **Tips:**
-- Run before archiving to catch mismatches early
-- Warnings don't block archive but indicate potential issues
-- Good for reviewing AI's work before committing
-- Can reveal drift between artifacts and implementation
+- A passing command does not prove semantic conformance; both sections matter
+- A broad suite cannot hide an applicable attached test that selects zero tests
+- Deferred roadmap absence is never a blocker
+- See [Acceptance Gates](acceptance.md) for the declaration and evidence contracts
 
 ---
 
@@ -494,7 +483,7 @@ AI:  Syncing add-dark-mode delta specs...
 
 ### `/opsx:archive`
 
-Archive a completed change. Finalizes the change and moves it to the archive folder.
+Adversarially review a completed change, then invoke core archive only after semantic and deterministic acceptance pass.
 
 **Syntax:**
 ```
@@ -507,46 +496,40 @@ Archive a completed change. Finalizes the change and moves it to the archive fol
 | `change-name` | No | Which change to archive (inferred from context if not provided) |
 
 **What it does:**
-- Checks artifact completion status
-- Checks task completion (warns if incomplete)
-- Offers to sync delta specs if not already synced
-- Moves change folder to `openspec/changes/archive/YYYY-MM-DD-<name>/`
-- Preserves all artifacts for audit trail
+- Reads evaluated CUE and applies the same phase-aware semantic contract as `/opsx:verify`
+- Runs deterministic acceptance and preserves the complete result
+- Assesses the intended delta-spec update without writing or moving files itself
+- Invokes core `openspec archive` only when both layers pass
+- Relies on core archive to rerun deterministic gates immediately before mutation
 
 **Example:**
 ```text
 You: /opsx:archive
 
-AI:  Archiving add-dark-mode...
-
-     Artifact status:
-     ✓ proposal.md exists
-     ✓ specs/ exists
-     ✓ design.md exists
-     ✓ tasks.md exists (8/8 tasks complete)
-
-     Delta specs: Not yet synced
-     → Sync now? (recommended)
+AI:  Semantic acceptance: pass
+     Deterministic acceptance: pass (2/2 validations executed)
+     Planned spec update: ui/theme requirement added
+     Archive this eligible change?
 
 You: Yes
 
-AI:  ✓ Synced specs to openspec/specs/ui/spec.md
-     ✓ Moved to openspec/changes/archive/2025-01-24-add-dark-mode/
-
-     Change archived successfully.
+AI:  Core archive reran acceptance: pass
+     ✓ Specs updated
+     ✓ Archived to openspec/changes/archive/2025-01-24-add-dark-mode/
 ```
 
 **Tips:**
-- Archive won't block on incomplete tasks, but will warn
-- Delta specs can be synced during archive or beforehand
+- User confirmation and `--yes`, `--skip-specs`, or `--no-validate` cannot override applicable blockers
+- A deterministic failure occurs before canonical-spec writes or archive moves
+- Projects without the CUE gate declaration keep legacy archive behavior
 - Archived changes are preserved for history
-- Use `/opsx:verify` first to catch issues
+- Use `/opsx:verify` first when you want the full report without archiving
 
 ---
 
 ### `/opsx:bulk-archive`
 
-Archive multiple completed changes at once. Handles spec conflicts between changes.
+Review multiple changes independently and archive only the eligible subset.
 
 **Syntax:**
 ```
@@ -559,44 +542,36 @@ Archive multiple completed changes at once. Handles spec conflicts between chang
 | `change-names` | No | Specific changes to archive (prompts to select if not provided) |
 
 **What it does:**
-- Lists all completed changes
-- Validates each change before archiving
-- Detects spec conflicts across changes
-- Resolves conflicts by checking what's actually implemented
-- Archives in chronological order
+- Reads each change's evaluated CUE context before its artifacts
+- Applies the complete semantic contract and deterministic acceptance independently per change
+- Reports blockers, deferred observations, delta-spec overlap, and eligibility per change
+- Offers only passing changes for confirmation
+- Invokes core archive separately for each eligible change and continues through independent failures
 
 **Example:**
 ```
 You: /opsx:bulk-archive
 
-AI:  Found 3 completed changes:
-     - add-dark-mode (8/8 tasks complete)
-     - fix-login-bug (3/3 tasks complete)
-     - update-footer (2/2 tasks complete)
+AI:  Change             Semantic  Deterministic  Eligibility
+     add-dark-mode      pass      pass           eligible
+     fix-login-bug      block     pass           blocked
+     update-footer      pass      pass           eligible
 
-     Checking for spec conflicts...
-     ⚠ add-dark-mode and update-footer both touch specs/ui/
-
-     Inspecting codebase to resolve...
-     Both changes are implemented. Will merge in chronological order:
-     1. add-dark-mode (created Jan 20)
-     2. update-footer (created Jan 22)
-
-     Archive all 3 changes?
+     Deferred observations are listed separately and do not affect eligibility.
+     Archive the 2 eligible changes?
 
 You: Yes
 
 AI:  ✓ Archived add-dark-mode
-     ✓ Archived fix-login-bug
      ✓ Archived update-footer
-     Specs merged: add-dark-mode → update-footer
+     Blocked: fix-login-bug (production caller discards typed failure)
 ```
 
 **Tips:**
 - Good for parallel work streams
-- Conflict resolution is agentic (checks codebase)
-- Changes are archived in order of creation
-- Prompts before overwriting spec content
+- A passing change's evidence never satisfies another change
+- Spec overlap is a coordination fact, not proof that either implementation conforms
+- Partial success never makes a blocked change eligible
 
 ---
 

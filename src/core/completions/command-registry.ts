@@ -159,6 +159,25 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
     ],
   },
   {
+    name: 'acceptance',
+    description: 'Run deterministic acceptance gates for a change or project release',
+    acceptsPositional: true,
+    positionalType: 'change-id',
+    positionals: [{ name: 'change-name', type: 'change-id', optional: true }],
+    flags: [
+      {
+        name: 'project',
+        description: 'Validate all active changes/specs and run project checks',
+      },
+      {
+        name: 'release',
+        description: 'Alias for --project',
+      },
+      COMMON_FLAGS.json,
+      COMMON_FLAGS.store,
+    ],
+  },
+  {
     name: 'status',
     description: 'Display artifact completion status for a change',
     flags: [

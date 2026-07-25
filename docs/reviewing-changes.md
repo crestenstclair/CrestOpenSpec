@@ -97,26 +97,25 @@ Then re-read the part you changed. Re-draft until it's a plan you'd sign your na
 
 ## After the code: verify
 
-Once the work is built, `/opsx:verify` is your second review. It re-reads the artifacts and the code and reports mismatches across three dimensions:
+Once the work is built, `/opsx:verify` is your second review. It reads evaluated CUE first, then combines two evidence layers:
 
-| Dimension | What it checks |
-|-----------|----------------|
-| **Completeness** | Every task done, every requirement implemented, scenarios covered |
-| **Correctness** | The implementation matches the spec's intent, edge cases handled |
-| **Coherence** | Design decisions actually show up in the code |
+| Layer | What it checks |
+|-------|----------------|
+| **Adversarial semantic review** | Applicable current/evergreen obligations, production composition and behavior, required witnesses, and deferred scope |
+| **Deterministic acceptance** | CUE evaluation, strict OpenSpec validation, every declared project check and applicable attached test, assertions, and selector-bound nonzero test evidence |
 
 ```
 You: /opsx:verify
 
 AI:  Verifying add-dark-mode...
 
-     COMPLETENESS
-     ✓ All 8 tasks in tasks.md are checked
-     ✓ All requirements in specs have corresponding code
-     ⚠ Scenario "Respects the OS preference on first load" has no test coverage
+     Semantic review: pass
+     Deferred preference migration: not applicable to this slice
+     Deterministic gates: pass (2/2 validations executed)
+     Ready to archive: yes — both layers passed
 ```
 
-It flags issues as CRITICAL, WARNING, or SUGGESTION, and it does **not** block archiving — it surfaces the gaps and leaves the call to you. This is the difference between "did the AI write code" and "did it build what we agreed."
+Applicable contradictions and required proof gaps block readiness; deferred roadmap absence does not. Every blocker must cite authority, applicability, production evidence, a falsifiable contradiction or exact proof gap, the exact controlled proof command and production-seam witness, and the observed result. Keyword suspicion alone is not a violation. See [Acceptance Gates](acceptance.md) for the full contract.
 
 `/opsx:verify` is in the expanded profile. If you don't have it, turn it on with `openspec config profile` (then `openspec update`), or just re-read the change and the diff yourself.
 

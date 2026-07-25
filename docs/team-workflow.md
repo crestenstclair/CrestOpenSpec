@@ -53,7 +53,7 @@ Archiving folds a change's deltas into your main `openspec/specs/` and moves the
 - **Archive after the PR merges (recommended).** The branch carries the active change; once it's merged to your main branch, archive there (often a tiny follow-up commit or a scheduled cleanup). This keeps the shared `specs/` moving forward only with work that actually shipped.
 - **Archive inside the PR.** Simpler for small teams: the same PR that adds the code also syncs and archives. The tradeoff is that your `specs/` diff and your code diff land together, which can make the PR noisier.
 
-Pick one and be consistent. Either way, `/opsx:archive` checks that tasks are complete and offers to sync first, so nothing merges half-finished by accident.
+Pick one and be consistent. Either way, `/opsx:archive` reviews semantic conformance and runs declared deterministic acceptance before core archive updates specs or moves the change. Legacy projects without acceptance declarations retain the familiar task warning and sync flow.
 
 ## Two people, parallel changes
 

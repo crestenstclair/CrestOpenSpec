@@ -1,6 +1,6 @@
 ---
 name: openspec-archive-change
-description: Archive a completed change in the experimental workflow. Use when the user wants to finalize and archive a change after implementation is complete.
+description: Adversarially review and archive one completed change through core archive enforcement.
 allowed-tools: Bash(openspec:*)
 license: MIT
 compatibility: Requires openspec CLI.
@@ -9,109 +9,91 @@ metadata:
   version: "1.0"
 ---
 
-Archive a completed change in the experimental workflow.
+Review and archive one OpenSpec change without bypassing acceptance.
 
-**Store selection:** If the user names a store (a store is a standalone OpenSpec repo registered on this machine) or the work lives in one, run `openspec store list --json` to discover registered store ids, then pass `--store <id>` on the commands that read or write specs and changes (`new change`, `status`, `instructions`, `list`, `show`, `validate`, `archive`, `doctor`, `context`). Other commands do not take the flag. Hints printed by commands already carry the flag; keep it on follow-ups. Without a store, commands act on the nearest local `openspec/` root.
+**Store selection:** If the user names a store (a store is a standalone OpenSpec repo registered on this machine) or the work lives in one, run `openspec store list --json` to discover registered store ids, then pass `--store <id>` on the commands that read or write specs and changes (`new change`, `status`, `instructions`, `list`, `show`, `validate`, `acceptance`, `archive`, `doctor`, `context`). Other commands do not take the flag. Hints printed by commands already carry the flag; keep it on follow-ups. Without a store, commands act on the nearest local `openspec/` root.
 
-**Input**: Optionally specify a change name. If omitted, check if it can be inferred from conversation context. If vague or ambiguous you MUST prompt for available changes.
+**Input**: Optionally provide a change name. Infer only when the conversation identifies one unambiguously; otherwise prompt for selection.
 
-**Steps**
+**Workflow**
 
-1. **If no change name provided, prompt for selection**
+1. Resolve exactly one active change. If the name is missing or ambiguous, run `openspec list --json` with the selected store flag and ask the user to choose; never guess.
+2. Run `openspec status --change "<name>" --json` with the selected store flag. Use the returned planning root, change root, artifact paths, schema, and action context.
+3. Run `openspec instructions apply --change "<name>" --json` with the selected store flag. Read evaluated `context` before every artifact in `contextFiles`.
+4. Apply the shared adversarial acceptance review below. Incomplete artifacts or tasks are evidence to classify against current authority; a confirmation does not override an applicable blocker.
+5. If delta specs exist, assess the intended canonical-spec update and explain it before archive. Do not mutate specs or move files yourself.
+6. Only when both semantic review and deterministic acceptance pass, ask for the ordinary archive confirmation if needed and invoke `openspec archive "<name>" --yes` with the selected store flag. Core archive reruns deterministic acceptance immediately before every spec or archive mutation.
+7. Preserve and report the core command's result. If it fails, the change remains unarchived.
 
-   Run `openspec list --json` to get available changes. Use the **AskUserQuestion tool** to let the user select.
+## Shared adversarial acceptance review
 
-   Show only active changes (not already archived).
-   Include the schema used for each change if available.
+Treat semantic review and deterministic acceptance as separate, mandatory layers. The CLI proves only declared deterministic gates; it does not establish semantic implementation conformance.
 
-   **IMPORTANT**: Do NOT guess or auto-select a change. Always let the user choose.
+### 1. Establish authority and applicability
 
-2. **Check artifact completion status**
+Read the evaluated CUE context before interpreting proposal, design, specs, tasks, implementation, or tests. Build an obligation ledger for every relevant architecture declaration, relationship, layer, boundary, resource, asset, validation, witness, requirement, and task. Classify each item exactly as:
 
-   Run `openspec status --change "<name>" --json` to check artifact completion.
+- `CURRENT_SLICE`: required by this change now.
+- `EVERGREEN_INVARIANT`: required in every phase, including this change.
+- `DEFERRED_SCOPE`: authorized roadmap work that is not required now.
+- `UNAUTHORIZED_EARLY_SCOPE`: behavior implemented before its authorized phase and in conflict with current authority.
 
-   Parse the JSON to understand:
-   - `schemaName`: The workflow being used
-   - `planningHome`, `changeRoot`, `artifactPaths`, and `actionContext`: path and scope context
-   - `artifacts`: List of artifacts with their status (`done` or other)
+Only an applicable current-slice or evergreen contradiction, unauthorized early scope, required proof gap, or failed deterministic gate may block. Missing deferred functionality is never a blocker; record it separately as `DEFERRED_NOT_APPLICABLE` or omit it. A future risk may be `INFORMATIONAL_FUTURE_RISK`, but it cannot reduce present acceptance.
 
-   **If any artifacts are not `done`:**
-   - Display warning listing incomplete artifacts
-   - Use **AskUserQuestion tool** to confirm user wants to proceed
-   - Proceed if user confirms
+### 2. Use evidence-complete findings
 
-3. **Check task completion status**
+Classify semantic findings as `BLOCKING_CURRENT_VIOLATION`, `BLOCKING_EVERGREEN_VIOLATION`, `BLOCKING_REQUIRED_PROOF_GAP`, `DEFERRED_NOT_APPLICABLE`, or `INFORMATIONAL_FUTURE_RISK`. Report unauthorized early scope through the applicable current or evergreen blocking class; do not invent another finding class.
 
-   Read the tasks file (typically `tasks.md`) to check for incomplete tasks.
+Every blocker must include all of the following:
 
-   Count tasks marked with `- [ ]` (incomplete) vs `- [x]` (complete).
+1. the exact evaluated-CUE or current OpenSpec authority citation;
+2. applicability classification and rationale;
+3. production implementation evidence with concrete paths or runtime trace;
+4. a falsifiable contradiction or precisely missing required proof;
+5. the exact controlled proof command and the production-seam witness it exercises (if execution cannot complete, report the attempted command and preserve the gap as blocking evidence);
+6. the observed result, not an expected or inferred result;
+7. severity and a scoped repair direction.
 
-   **If incomplete tasks found:**
-   - Display warning showing count of incomplete tasks
-   - Use **AskUserQuestion tool** to confirm user wants to proceed
-   - Proceed if user confirms
+Keyword searches, name similarity, architectural suspicion, a success string, missing future functionality, or lack of investigation are not proof. Do not turn uncertainty into a blocker. Prefer production execution and controlled negative witnesses over mocks that bypass the production seam or tests that only construct a component.
 
-   **If no tasks file exists:** Proceed without task-related warning.
+### 3. Build the architecture-conformance matrix
 
-4. **Assess delta spec sync state**
+For every `CURRENT_SLICE` obligation and `EVERGREEN_INVARIANT`, map the evaluated declaration to its production composition, runtime behavior, and behavioral witness. Include every applicable port, layer, composition decision, prepared-runtime constraint, failure channel, and validation declaration. Local component correctness is insufficient when production composition drops, bypasses, overwrites, or makes the contract unreachable.
 
-   Use `artifactPaths.specs.existingOutputPaths` from status JSON to check for delta specs. If none exist, proceed without sync prompt.
+Apply every guard below:
 
-   **If delta specs exist:**
-   - Compare each delta spec with its corresponding main spec at `<planningHome.root>/openspec/specs/<capability>/spec.md` (use the store-aware `planningHome.root` from step 2, not a hardcoded repo path)
-   - Determine what changes would be applied (adds, modifications, removals, renames)
-   - Show a combined summary before prompting
+#### composition-root-and-dependency-direction
 
-   **Prompt options:**
-   - If changes needed: "Sync now (recommended)", "Archive without syncing"
-   - If already synced: "Archive now", "Sync anyway", "Cancel"
+For each declared port or injected dependency, identify the architecture owner that selects and constructs the concrete implementation, the production composition site that supplies it, the application service that consumes it, and the resulting production dependency direction. Verify that production uses the supplied dependency and does not construct, import, or select an adapter internally when the evaluated architecture assigns that choice to a composition root. Verify that the port is not declaration-only or test-only while production bypasses it. This is conditional on the applicable architecture; do not invent a blanket dependency-injection rule.
 
-   If user chooses sync, use Task tool (subagent_type: "general-purpose", prompt: "Use Skill tool to invoke openspec-sync-specs for change '<name>'. Delta spec analysis: <include the analyzed delta spec summary>"). If the user chooses "Cancel", stop — do not archive. For any other choice, proceed to archive.
+Require a production-composition witness that substitutes or deliberately mismatches the dependency at the declared port and observes the specified typed acceptance or rejection. A concrete-adapter unit test is not sufficient.
 
-5. **Perform the archive**
+#### negotiation-before-preparation
 
-   Create an `archive` directory under `planningHome.changesDir` if it doesn't exist:
-   ```bash
-   mkdir -p "<planningHome.changesDir>/archive"
-   ```
+For every artifact whose validity depends on a runtime-selected value, trace the exact order: negotiate or discover -> validate -> prepare a complete compatible artifact -> start runtime processing -> check later runtime values against the prepared contract. Cover a supported non-default negotiated value and relevant capacity boundaries. Block defaults or requested values used before negotiation, ignored actual values, incompatible preparation, silent truncation, silent padding, or degraded fallback. Unsupported configurations must fail visibly before processing starts.
 
-   Generate target name using current date: `YYYY-MM-DD-<change-name>`
+#### asynchronous-runtime-failure
 
-   **Check if target already exists:**
-   - If yes: Fail with error, suggest renaming existing archive or using different date
-   - If no: Move `changeRoot` to the archive directory
+Trace startup failures and post-start failures from callbacks, futures, event streams, worker completions, device notifications, and background tasks into the declared bounded status, error transport, state transition, recovery, or user-visible boundary. Block an ignored callback argument, empty error handler, detached failed task, caught-and-discarded exception, unconditional success conversion, or silent output. Require a controlled negative witness that injects failure after successful startup and proves the exact production observation or recovery behavior.
 
-   ```bash
-   mv "<changeRoot>" "<planningHome.changesDir>/archive/YYYY-MM-DD-<name>"
-   ```
+#### end-to-end-failure-observability
 
-6. **Display summary**
+Trace every contractually observable typed status or error through every production caller. Block discarded results, unused booleans, caught-but-unrecorded failures, or substitution of ordinary success. Enter through the production composition seam and independently prove both (a) no forbidden mutation, routing, or fallback and (b) the required error, status, state, or counter observation. Either assertion alone is incomplete; a direct component test does not cover a production caller that erases the result.
 
-   Show archive completion summary including:
-   - Change name
-   - Schema that was used
-   - Archive location
-   - Whether specs were synced (if applicable)
-   - Note about any warnings (incomplete artifacts/tasks)
+#### validation-declaration-integrity
 
-**Output On Success**
+Build the inventory from `completion.projectChecks` and test-bearing validations attached to every applicable CUE resource, relationship, capability, invariant, witness, or acceptance asset. Record exact validation identity, declaration location, owner, argument vector, provider, opaque selector, applicability, and execution provenance. Every applicable declaration is independently binding. A broad suite cannot rehabilitate a targeted validation that selects zero tests, and evidence for a broad or different selector cannot satisfy the targeted declaration. Missing applicability metadata, orphaned evidence references, duplicated identities, and ambiguous ownership fail closed according to the evaluated schema.
 
-```markdown
-## Archive Complete
+Do not add AST assumptions, framework names, method spellings, runner-name guesses, or ecosystem heuristics to deterministic acceptance. A project that wants machine-enforced semantic or source analysis must declare an executable validation or explicit provider. Unsupported inference is never a deterministic pass.
 
-**Change:** <change-name>
-**Schema:** <schema-name>
-**Archived to:** the archive path derived from `planningHome.changesDir`/YYYY-MM-DD-<name>/
-**Specs:** ✓ Synced to main specs (or "No delta specs" or "Sync skipped")
+### 4. Run deterministic acceptance
 
-<"All artifacts complete. All tasks complete." — or, if archived with warnings, list them instead (e.g. "Archived with 2 incomplete tasks")>
-```
+Run `openspec acceptance "<name>" --json` with the selected store flag, if any. Preserve its complete result as the deterministic layer. A command exit of zero is not enough for a test-bearing validation: its declared provider must return trustworthy, selector-matched evidence with a nonzero executed count and satisfy its own assertions. Do not reuse evidence between different invocations or selectors.
 
-**Guardrails**
-- Always prompt for change selection if not provided
-- Use artifact graph (openspec status --json) for completion checking
-- Don't block archive on warnings - just inform and confirm
-- Preserve .openspec.yaml when moving to archive (it moves with the directory)
-- Show clear summary of what happened
-- If sync is requested, use openspec-sync-specs approach (agent-driven)
-- If delta specs exist, always run the sync assessment and show the combined summary before prompting
+### 5. Decide and report
+
+Report the obligation ledger, architecture-conformance matrix, evidence-complete semantic findings, deterministic acceptance result, and final eligibility separately. Put deferred and informational observations in a non-blocking section. Never report `ready to archive` while any applicable semantic blocker or deterministic gate fails. User confirmation, warning acceptance, incomplete-task confirmation, `--yes`, `--skip-specs`, or `--no-validate` cannot override these blockers.
+
+**Output**
+
+Before mutation, show semantic eligibility, the complete deterministic result, deferred observations, and the planned spec/archive effect. On success, report the core archive destination and spec-update result. On failure, state that no semantic finding or deterministic gate can be bypassed by confirmation or legacy skip flags.

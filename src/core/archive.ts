@@ -20,6 +20,11 @@ import {
   type SpecUpdate,
 } from './specs-apply.js';
 import { discoverSpecFiles } from '../utils/spec-discovery.js';
+import {
+  AcceptanceService,
+  renderAcceptanceHuman,
+  type AcceptanceReport,
+} from './acceptance/index.js';
 
 function isMissingPathError(error: unknown): boolean {
   return (
@@ -72,6 +77,7 @@ interface ArchiveResult {
   archivedAs: string;
   path: string;
   specsUpdated: boolean;
+  acceptance: AcceptanceReport;
   totals?: { added: number; modified: number; removed: number; renamed: number };
 }
 
@@ -82,8 +88,9 @@ interface ArchiveResult {
  */
 class ArchiveBlockedError extends Error {
   readonly diagnostic: ArchiveDiagnostic;
+  readonly acceptance?: AcceptanceReport;
 
-  constructor(code: string, message: string, fix?: string) {
+  constructor(code: string, message: string, fix?: string, acceptance?: AcceptanceReport) {
     super(message);
     this.name = 'ArchiveBlockedError';
     this.diagnostic = {
@@ -92,6 +99,7 @@ class ArchiveBlockedError extends Error {
       message,
       ...(fix ? { fix } : {}),
     };
+    this.acceptance = acceptance;
   }
 }
 
@@ -147,8 +155,13 @@ async function moveDirectory(src: string, dest: string): Promise<void> {
 }
 
 export class ArchiveCommand {
+  private lastAcceptanceReport?: AcceptanceReport;
+
+  constructor(private readonly acceptanceService = new AcceptanceService()) {}
+
   async execute(changeName?: string, options: ArchiveOptions = {}): Promise<void> {
     const json = !!options.json;
+    this.lastAcceptanceReport = undefined;
 
     let root: ResolvedOpenSpecRoot;
     try {
@@ -172,7 +185,13 @@ export class ArchiveCommand {
         }
         console.log(JSON.stringify({ archive: result, root: toRootOutput(root) }, null, 2));
       } catch (error) {
-        this.printJsonFailure(root, toArchiveDiagnostic(error));
+        this.printJsonFailure(
+          root,
+          toArchiveDiagnostic(error),
+          error instanceof ArchiveBlockedError
+            ? error.acceptance ?? this.lastAcceptanceReport
+            : this.lastAcceptanceReport
+        );
       }
       return;
     }
@@ -181,12 +200,17 @@ export class ArchiveCommand {
     await this.run(changeName, options, root, false);
   }
 
-  private printJsonFailure(root: ResolvedOpenSpecRoot | undefined, diagnostic: ArchiveDiagnostic): void {
+  private printJsonFailure(
+    root: ResolvedOpenSpecRoot | undefined,
+    diagnostic: ArchiveDiagnostic,
+    acceptance?: AcceptanceReport
+  ): void {
     console.log(
       JSON.stringify(
         {
           archive: null,
           ...(root ? { root: toRootOutput(root) } : {}),
+          ...(acceptance ? { acceptance } : {}),
           status: [diagnostic],
         },
         null,
@@ -243,6 +267,27 @@ export class ArchiveCommand {
         available.length > 0
           ? `Change '${changeName}' not found. Available changes: ${available.join(', ')}`
           : `Change '${changeName}' not found. No active changes exist in this root.`
+      );
+    }
+
+    // Archive is an explicit command-running workflow. Evaluate mandatory
+    // acceptance before any validation confirmation, spec write, archive
+    // directory creation, or move. Legacy flags are considered only after an
+    // inapplicable or passing report, so they cannot bypass governed gates.
+    const acceptance = await this.acceptanceService.run(root, {
+      scope: { mode: 'change', change: changeName },
+    });
+    this.lastAcceptanceReport = acceptance;
+    if (!json) {
+      console.log(renderAcceptanceHuman(acceptance));
+      console.log('');
+    }
+    if (acceptance.applicable && !acceptance.passed) {
+      throw new ArchiveBlockedError(
+        'archive_acceptance_failed',
+        `Mandatory acceptance failed for change '${changeName}'. No archive files were modified.`,
+        withStoreFlag(root, `openspec acceptance ${changeName} --json`),
+        acceptance
       );
     }
 
@@ -527,6 +572,7 @@ export class ArchiveCommand {
       archivedAs: archiveName,
       path: archivePath,
       specsUpdated,
+      acceptance,
       ...(totals ? { totals } : {}),
     };
   }

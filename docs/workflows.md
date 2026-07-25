@@ -224,28 +224,22 @@ When you have multiple completed changes, use `/opsx:bulk-archive`:
 ```text
 You: /opsx:bulk-archive
 
-AI:  Found 3 completed changes:
-     - add-dark-mode (all tasks done)
-     - fix-login-redirect (all tasks done)
-     - update-footer (all tasks done)
+AI:  Change               Semantic  Deterministic  Eligibility
+     add-dark-mode        pass      pass           eligible
+     fix-login-redirect   pass      fail           blocked
+     update-footer        pass      pass           eligible
 
-     Checking for spec conflicts...
-     ⚠ add-dark-mode and update-footer both touch specs/ui/
-
-     Inspecting codebase to resolve...
-     Both changes are implemented. Will apply in chronological order.
-
-     Archive all 3 changes?
+     Spec overlap: add-dark-mode and update-footer both touch specs/ui/
+     Archive the 2 independently eligible changes?
 
 You: Yes
 
 AI:  ✓ Archived add-dark-mode
-     ✓ Archived fix-login-redirect
      ✓ Archived update-footer
-     Specs merged in order: add-dark-mode → update-footer
+     Blocked: fix-login-redirect (targeted validation selected zero tests)
 ```
 
-Bulk archive detects when multiple changes touch the same specs and resolves conflicts by checking what's actually implemented.
+Bulk archive reports spec overlap as coordination context, evaluates each change independently, and delegates every eligible mutation to core archive. Evidence or confirmation for one change never rehabilitates another.
 
 ### Completing a Change
 
@@ -254,54 +248,37 @@ The recommended completion flow:
 ```text
 /opsx:apply ──► /opsx:verify ──► /opsx:archive
                     │                 │
-              validates          prompts to sync
-              implementation     if needed
+              semantic review    reruns deterministic gates,
+              + deterministic    then updates and moves
 ```
 
 #### Verify: Check Your Work
 
-`/opsx:verify` validates implementation against your artifacts across three dimensions:
+`/opsx:verify` reads evaluated CUE first and requires two distinct evidence layers:
 
 ```text
 You: /opsx:verify
 
-AI:  Verifying add-auth...
+AI:  Semantic review
+     ✓ Current and evergreen obligations conform in production
+     ✓ Architecture drift guards have controlled witnesses
+     Deferred: future federation support (not applicable)
 
-     COMPLETENESS
-     ✓ All 12 tasks in tasks.md are checked
-     ✓ All requirements in specs have corresponding code
-     ⚠ Scenario "Session timeout after inactivity" not tested
+     Deterministic acceptance
+     ✓ CUE and strict OpenSpec validation
+     ✓ 3/3 executable validations, including targeted tests
 
-     CORRECTNESS
-     ✓ Implementation matches spec intent
-     ✓ Edge cases from scenarios are handled
-     ✓ Error states match spec definitions
-
-     COHERENCE
-     ✓ Design decisions reflected in code structure
-     ✓ Naming conventions consistent with design.md
-     ⚠ Design mentions "event-driven" but implementation uses polling
-
-     SUMMARY
-     ─────────────────────────────
-     Critical issues: 0
-     Warnings: 2
-     Ready to archive: Yes (with warnings)
-
-     Recommendations:
-     1. Add test for session timeout scenario
-     2. Consider refactoring to event-driven as designed, or update design.md
+     Ready to archive: Yes — both layers passed
 ```
 
 **What verify checks:**
 
-| Dimension | What it validates |
-|-----------|------------------|
-| Completeness | All tasks done, all requirements implemented, scenarios covered |
-| Correctness | Implementation matches spec intent, edge cases handled |
-| Coherence | Design decisions reflected in code, patterns consistent |
+| Layer | What it validates |
+|-------|-------------------|
+| Semantic | Current/evergreen architecture through production composition, runtime behavior, and witnesses |
+| Deterministic | CUE, strict OpenSpec material, declared invocations, assertions, selectors, and nonzero test execution |
 
-Verify won't block archive, but it surfaces issues you might want to address first.
+Applicable semantic blockers or deterministic failures withhold readiness. Missing deferred functionality is explicitly non-blocking.
 
 #### Archive: Finalize the Change
 
@@ -310,26 +287,18 @@ Verify won't block archive, but it surfaces issues you might want to address fir
 ```text
 You: /opsx:archive
 
-AI:  Archiving add-auth...
-
-     Artifact status:
-     ✓ proposal.md exists
-     ✓ specs/ exists
-     ✓ design.md exists
-     ✓ tasks.md exists (12/12 tasks complete)
-
-     Delta specs: Not yet synced to main
-     → Would you like to sync now?
+AI:  Semantic acceptance: pass
+     Deterministic acceptance: pass
+     → Archive this eligible change?
 
 You: Yes
 
-AI:  ✓ Synced specs to openspec/specs/auth/spec.md
+AI:  ✓ Core archive reran deterministic acceptance
+     ✓ Synced specs to openspec/specs/auth/spec.md
      ✓ Moved to openspec/changes/archive/2025-01-24-add-auth/
-
-     Change archived successfully.
 ```
 
-Archive will prompt if specs aren't synced. It won't block on incomplete tasks, but it will warn you.
+Core archive runs applicable deterministic gates before any spec write or move. Confirmation, `--yes`, `--skip-specs`, and `--no-validate` cannot override a failed gate; projects without the declaration retain legacy archive behavior. See [Acceptance Gates](acceptance.md).
 
 ## When to Use What
 

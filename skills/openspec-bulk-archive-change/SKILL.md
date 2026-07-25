@@ -1,6 +1,6 @@
 ---
 name: openspec-bulk-archive-change
-description: Archive multiple completed changes at once. Use when archiving several parallel changes.
+description: Adversarially review multiple changes and archive only the independently eligible subset.
 allowed-tools: Bash(openspec:*)
 license: MIT
 compatibility: Requires openspec CLI.
@@ -9,240 +9,91 @@ metadata:
   version: "1.0"
 ---
 
-Archive multiple completed changes in a single operation.
+Review several OpenSpec changes independently and archive only the eligible subset.
 
-This skill allows you to batch-archive changes, handling spec conflicts intelligently by checking the codebase to determine what's actually implemented.
+**Store selection:** If the user names a store (a store is a standalone OpenSpec repo registered on this machine) or the work lives in one, run `openspec store list --json` to discover registered store ids, then pass `--store <id>` on the commands that read or write specs and changes (`new change`, `status`, `instructions`, `list`, `show`, `validate`, `acceptance`, `archive`, `doctor`, `context`). Other commands do not take the flag. Hints printed by commands already carry the flag; keep it on follow-ups. Without a store, commands act on the nearest local `openspec/` root.
 
-**Store selection:** If the user names a store (a store is a standalone OpenSpec repo registered on this machine) or the work lives in one, run `openspec store list --json` to discover registered store ids, then pass `--store <id>` on the commands that read or write specs and changes (`new change`, `status`, `instructions`, `list`, `show`, `validate`, `archive`, `doctor`, `context`). Other commands do not take the flag. Hints printed by commands already carry the flag; keep it on follow-ups. Without a store, commands act on the nearest local `openspec/` root.
+**Input**: None required; always prompt for one or more active changes.
 
-**Input**: None required (prompts for selection)
+**Workflow**
 
-**Steps**
+1. Run `openspec list --json` with the selected store flag and ask the user which active changes to review. Never auto-select; one or more selections are valid.
+2. For each selected change independently, run `openspec status --change "<name>" --json` and `openspec instructions apply --change "<name>" --json` with the selected store flag. Read that change's evaluated `context` before its artifacts.
+3. Apply the complete shared adversarial acceptance review below independently to each change. Do not let evidence, applicability, a broad suite, or a passing result for one change satisfy another.
+4. Build a table with semantic status, deterministic status, blocking classes, deferred observations, delta-spec overlap, and final eligibility for every selected change. A spec overlap is a coordination fact, not proof of implementation; resolve ordering only from current authority and evidence.
+5. Ask once which eligible changes to archive. Blocked changes are not offered as overrideable choices.
+6. For every confirmed eligible change, invoke `openspec archive "<name>" --yes` with the selected store flag. Never move directories or write canonical specs directly. Core archive reruns deterministic acceptance immediately before mutation.
+7. Continue through independent failures and report archived, failed, and acceptance-blocked changes separately. Partial success never turns a failed change into an archive candidate.
 
-1. **Get active changes**
+## Shared adversarial acceptance review
 
-   Run `openspec list --json` to get all active changes.
+Treat semantic review and deterministic acceptance as separate, mandatory layers. The CLI proves only declared deterministic gates; it does not establish semantic implementation conformance.
 
-   If no active changes exist, inform user and stop.
+### 1. Establish authority and applicability
 
-2. **Prompt for change selection**
+Read the evaluated CUE context before interpreting proposal, design, specs, tasks, implementation, or tests. Build an obligation ledger for every relevant architecture declaration, relationship, layer, boundary, resource, asset, validation, witness, requirement, and task. Classify each item exactly as:
 
-   Use **AskUserQuestion tool** with multi-select to let user choose changes:
-   - Show each change with its schema
-   - Include an option for "All changes"
-   - Allow any number of selections (1+ works, 2+ is the typical use case)
+- `CURRENT_SLICE`: required by this change now.
+- `EVERGREEN_INVARIANT`: required in every phase, including this change.
+- `DEFERRED_SCOPE`: authorized roadmap work that is not required now.
+- `UNAUTHORIZED_EARLY_SCOPE`: behavior implemented before its authorized phase and in conflict with current authority.
 
-   **IMPORTANT**: Do NOT auto-select. Always let the user choose.
+Only an applicable current-slice or evergreen contradiction, unauthorized early scope, required proof gap, or failed deterministic gate may block. Missing deferred functionality is never a blocker; record it separately as `DEFERRED_NOT_APPLICABLE` or omit it. A future risk may be `INFORMATIONAL_FUTURE_RISK`, but it cannot reduce present acceptance.
 
-3. **Batch validation - gather status for all selected changes**
+### 2. Use evidence-complete findings
 
-   For each selected change, collect:
+Classify semantic findings as `BLOCKING_CURRENT_VIOLATION`, `BLOCKING_EVERGREEN_VIOLATION`, `BLOCKING_REQUIRED_PROOF_GAP`, `DEFERRED_NOT_APPLICABLE`, or `INFORMATIONAL_FUTURE_RISK`. Report unauthorized early scope through the applicable current or evergreen blocking class; do not invent another finding class.
 
-   a. **Artifact status** - Run `openspec status --change "<name>" --json`
-      - Parse `schemaName`, `artifacts`, `planningHome`, `changeRoot`, `artifactPaths`, and `actionContext`
-      - Note which artifacts are `done` vs other states
+Every blocker must include all of the following:
 
-   b. **Task completion** - Read `artifactPaths.tasks.existingOutputPaths` from status JSON
-      - Count `- [ ]` (incomplete) vs `- [x]` (complete)
-      - If no tasks file exists, note as "No tasks"
+1. the exact evaluated-CUE or current OpenSpec authority citation;
+2. applicability classification and rationale;
+3. production implementation evidence with concrete paths or runtime trace;
+4. a falsifiable contradiction or precisely missing required proof;
+5. the exact controlled proof command and the production-seam witness it exercises (if execution cannot complete, report the attempted command and preserve the gap as blocking evidence);
+6. the observed result, not an expected or inferred result;
+7. severity and a scoped repair direction.
 
-   c. **Delta specs** - Check `artifactPaths.specs.existingOutputPaths` from status JSON
-      - List which capability specs exist
-      - For each, extract requirement names (lines matching `### Requirement: <name>`)
+Keyword searches, name similarity, architectural suspicion, a success string, missing future functionality, or lack of investigation are not proof. Do not turn uncertainty into a blocker. Prefer production execution and controlled negative witnesses over mocks that bypass the production seam or tests that only construct a component.
 
-4. **Detect spec conflicts**
+### 3. Build the architecture-conformance matrix
 
-   Build a map of `capability -> [changes that touch it]`:
+For every `CURRENT_SLICE` obligation and `EVERGREEN_INVARIANT`, map the evaluated declaration to its production composition, runtime behavior, and behavioral witness. Include every applicable port, layer, composition decision, prepared-runtime constraint, failure channel, and validation declaration. Local component correctness is insufficient when production composition drops, bypasses, overwrites, or makes the contract unreachable.
 
-   ```text
-   auth -> [change-a, change-b]  <- CONFLICT (2+ changes)
-   api  -> [change-c]            <- OK (only 1 change)
-   ```
+Apply every guard below:
 
-   A conflict exists when 2+ selected changes have delta specs for the same capability.
+#### composition-root-and-dependency-direction
 
-5. **Resolve conflicts agentically**
+For each declared port or injected dependency, identify the architecture owner that selects and constructs the concrete implementation, the production composition site that supplies it, the application service that consumes it, and the resulting production dependency direction. Verify that production uses the supplied dependency and does not construct, import, or select an adapter internally when the evaluated architecture assigns that choice to a composition root. Verify that the port is not declaration-only or test-only while production bypasses it. This is conditional on the applicable architecture; do not invent a blanket dependency-injection rule.
 
-   **For each conflict**, investigate the codebase:
+Require a production-composition witness that substitutes or deliberately mismatches the dependency at the declared port and observes the specified typed acceptance or rejection. A concrete-adapter unit test is not sufficient.
 
-   a. **Read the delta specs** from each conflicting change to understand what each claims to add/modify
+#### negotiation-before-preparation
 
-   b. **Search the codebase** for implementation evidence:
-      - Look for code implementing requirements from each delta spec
-      - Check for related files, functions, or tests
+For every artifact whose validity depends on a runtime-selected value, trace the exact order: negotiate or discover -> validate -> prepare a complete compatible artifact -> start runtime processing -> check later runtime values against the prepared contract. Cover a supported non-default negotiated value and relevant capacity boundaries. Block defaults or requested values used before negotiation, ignored actual values, incompatible preparation, silent truncation, silent padding, or degraded fallback. Unsupported configurations must fail visibly before processing starts.
 
-   c. **Determine resolution**:
-      - If only one change is actually implemented -> sync that one's specs
-      - If both implemented -> apply in chronological order (older first, newer overwrites)
-      - If neither implemented -> skip spec sync, warn user
+#### asynchronous-runtime-failure
 
-   d. **Record resolution** for each conflict:
-      - Which change's specs to apply
-      - In what order (if both)
-      - Rationale (what was found in codebase)
+Trace startup failures and post-start failures from callbacks, futures, event streams, worker completions, device notifications, and background tasks into the declared bounded status, error transport, state transition, recovery, or user-visible boundary. Block an ignored callback argument, empty error handler, detached failed task, caught-and-discarded exception, unconditional success conversion, or silent output. Require a controlled negative witness that injects failure after successful startup and proves the exact production observation or recovery behavior.
 
-6. **Show consolidated status table**
+#### end-to-end-failure-observability
 
-   Display a table summarizing all changes:
+Trace every contractually observable typed status or error through every production caller. Block discarded results, unused booleans, caught-but-unrecorded failures, or substitution of ordinary success. Enter through the production composition seam and independently prove both (a) no forbidden mutation, routing, or fallback and (b) the required error, status, state, or counter observation. Either assertion alone is incomplete; a direct component test does not cover a production caller that erases the result.
 
-   ```markdown
-   | Change              | Artifacts | Tasks | Specs   | Conflicts | Status |
-   |---------------------|-----------|-------|---------|-----------|--------|
-   | schema-management   | Done      | 5/5   | 2 delta | None      | Ready  |
-   | project-config      | Done      | 3/3   | 1 delta | None      | Ready  |
-   | add-oauth           | Done      | 4/4   | 1 delta | auth (!)  | Ready* |
-   | add-verify-skill    | 1 left    | 2/5   | None    | None      | Warn   |
-   ```
+#### validation-declaration-integrity
 
-   For conflicts, show the resolution:
-   ```text
-   * Conflict resolution:
-     - auth spec: Will apply add-oauth then add-jwt (both implemented, chronological order)
-   ```
+Build the inventory from `completion.projectChecks` and test-bearing validations attached to every applicable CUE resource, relationship, capability, invariant, witness, or acceptance asset. Record exact validation identity, declaration location, owner, argument vector, provider, opaque selector, applicability, and execution provenance. Every applicable declaration is independently binding. A broad suite cannot rehabilitate a targeted validation that selects zero tests, and evidence for a broad or different selector cannot satisfy the targeted declaration. Missing applicability metadata, orphaned evidence references, duplicated identities, and ambiguous ownership fail closed according to the evaluated schema.
 
-   For incomplete changes, show warnings:
-   ```text
-   Warnings:
-   - add-verify-skill: 1 incomplete artifact, 3 incomplete tasks
-   ```
+Do not add AST assumptions, framework names, method spellings, runner-name guesses, or ecosystem heuristics to deterministic acceptance. A project that wants machine-enforced semantic or source analysis must declare an executable validation or explicit provider. Unsupported inference is never a deterministic pass.
 
-7. **Confirm batch operation**
+### 4. Run deterministic acceptance
 
-   Use **AskUserQuestion tool** with a single confirmation:
+Run `openspec acceptance "<name>" --json` with the selected store flag, if any. Preserve its complete result as the deterministic layer. A command exit of zero is not enough for a test-bearing validation: its declared provider must return trustworthy, selector-matched evidence with a nonzero executed count and satisfy its own assertions. Do not reuse evidence between different invocations or selectors.
 
-   - "Archive N changes?" with options based on status
-   - Options might include:
-     - "Archive all N changes"
-     - "Archive only N ready changes (skip incomplete)"
-     - "Cancel"
+### 5. Decide and report
 
-   If there are incomplete changes, make clear they'll be archived with warnings.
+Report the obligation ledger, architecture-conformance matrix, evidence-complete semantic findings, deterministic acceptance result, and final eligibility separately. Put deferred and informational observations in a non-blocking section. Never report `ready to archive` while any applicable semantic blocker or deterministic gate fails. User confirmation, warning acceptance, incomplete-task confirmation, `--yes`, `--skip-specs`, or `--no-validate` cannot override these blockers.
 
-8. **Execute archive for each confirmed change**
+**Output**
 
-   Process changes in the determined order (respecting conflict resolution):
-
-   a. **Sync specs** if delta specs exist:
-      - Use the openspec-sync-specs approach (agent-driven intelligent merge)
-      - For conflicts, apply in resolved order
-      - Track if sync was done
-
-   b. **Perform the archive**:
-      ```bash
-      mkdir -p "<planningHome.changesDir>/archive"
-      mv "<changeRoot>" "<planningHome.changesDir>/archive/YYYY-MM-DD-<name>"
-      ```
-
-   c. **Track outcome** for each change:
-      - Success: archived successfully
-      - Failed: error during archive (record error)
-      - Skipped: user chose not to archive (if applicable)
-
-9. **Display summary**
-
-   Show final results:
-
-   ```markdown
-   ## Bulk Archive Complete
-
-   Archived 3 changes:
-   - schema-management-cli -> archive/2026-01-19-schema-management-cli/
-   - project-config -> archive/2026-01-19-project-config/
-   - add-oauth -> archive/2026-01-19-add-oauth/
-
-   Skipped 1 change:
-   - add-verify-skill (user chose not to archive incomplete)
-
-   Spec sync summary:
-   - 4 delta specs synced to main specs
-   - 1 conflict resolved (auth: applied both in chronological order)
-   ```
-
-   If any failures:
-   ```text
-   Failed 1 change:
-   - some-change: Archive directory already exists
-   ```
-
-**Conflict Resolution Examples**
-
-Example 1: Only one implemented
-```text
-Conflict: specs/auth/spec.md touched by [add-oauth, add-jwt]
-
-Checking add-oauth:
-- Delta adds "OAuth Provider Integration" requirement
-- Searching codebase... found src/auth/oauth.ts implementing OAuth flow
-
-Checking add-jwt:
-- Delta adds "JWT Token Handling" requirement
-- Searching codebase... no JWT implementation found
-
-Resolution: Only add-oauth is implemented. Will sync add-oauth specs only.
-```
-
-Example 2: Both implemented
-```text
-Conflict: specs/api/spec.md touched by [add-rest-api, add-graphql]
-
-Checking add-rest-api (created 2026-01-10):
-- Delta adds "REST Endpoints" requirement
-- Searching codebase... found src/api/rest.ts
-
-Checking add-graphql (created 2026-01-15):
-- Delta adds "GraphQL Schema" requirement
-- Searching codebase... found src/api/graphql.ts
-
-Resolution: Both implemented. Will apply add-rest-api specs first,
-then add-graphql specs (chronological order, newer takes precedence).
-```
-
-**Output On Success**
-
-```markdown
-## Bulk Archive Complete
-
-Archived N changes:
-- <change-1> -> archive/YYYY-MM-DD-<change-1>/
-- <change-2> -> archive/YYYY-MM-DD-<change-2>/
-
-Spec sync summary:
-- N delta specs synced to main specs
-- No conflicts (or: M conflicts resolved)
-```
-
-**Output On Partial Success**
-
-```markdown
-## Bulk Archive Complete (partial)
-
-Archived N changes:
-- <change-1> -> archive/YYYY-MM-DD-<change-1>/
-
-Skipped M changes:
-- <change-2> (user chose not to archive incomplete)
-
-Failed K changes:
-- <change-3>: Archive directory already exists
-```
-
-**Output When No Changes**
-
-```markdown
-## No Changes to Archive
-
-No active changes found. Create a new change to get started.
-```
-
-**Guardrails**
-- Allow any number of changes (1+ is fine, 2+ is the typical use case)
-- Always prompt for selection, never auto-select
-- Detect spec conflicts early and resolve by checking codebase
-- When both changes are implemented, apply specs in chronological order
-- Skip spec sync only when implementation is missing (warn user)
-- Show clear per-change status before confirming
-- Use single confirmation for entire batch
-- Track and report all outcomes (success/skip/fail)
-- Preserve .openspec.yaml when moving to archive
-- Archive directory target uses current date: YYYY-MM-DD-<name>
-- If archive target exists, fail that change but continue with others
+Show one evidence-backed eligibility row per change, then the confirmed eligible subset. Finish with separate archived, failed, blocked, and non-blocking deferred sections. Include the core archive result for each attempted change.
