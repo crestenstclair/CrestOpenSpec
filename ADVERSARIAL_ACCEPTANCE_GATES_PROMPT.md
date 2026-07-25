@@ -9,6 +9,7 @@ Integrate a phase-aware adversarial implementation review into OpenSpec acceptan
 - successful CUE architecture evaluation;
 - strict OpenSpec validation;
 - execution of every declared project completion check;
+- execution of every test-bearing validation attached to an applicable CUE resource or witness, even when a broader project check also runs;
 - assertion evaluation for each executed check;
 - proof that every test-bearing check executed at least one test.
 
@@ -88,6 +89,82 @@ Keyword searches, architectural suspicion, missing future features, or lack of i
 - `DEFERRED_NOT_APPLICABLE`
 - `INFORMATIONAL_FUTURE_RISK`
 
+## Mandatory architecture-drift guards
+
+For every `CURRENT_SLICE` obligation and `EVERGREEN_INVARIANT`, review the complete trace from evaluated architecture declaration to production composition, runtime behavior, and behavioral witness. A locally correct component is not sufficient when the production composition drops, bypasses, overwrites, or makes its contract unreachable.
+
+These guards have two enforcement routes:
+
+- deterministic acceptance enforces declared validation coverage, process results, assertions, and structured evidence;
+- adversarial semantic review inspects composition and implementation meaning that cannot be established by a language-neutral command runner.
+
+Do not add source-language AST assumptions, framework names, method spellings, or ecosystem-specific heuristics to core acceptance. If a project wants machine-enforced source analysis, it must declare an executable validation or install an explicit provider. Unsupported semantic inference never becomes a passing deterministic gate.
+
+### Composition-root and dependency-direction guard
+
+Use evaluated CUE relationships, ports, adapters, layers, application services, assets, and composition-root declarations to build a production dependency map.
+
+For every declared port or injected dependency:
+
+- identify the declared owner that selects and constructs the concrete implementation;
+- identify the production composition site that supplies it;
+- trace the value into the application service that consumes the port;
+- verify that production code uses the supplied dependency instead of constructing, importing, or selecting a concrete adapter internally;
+- verify that the port is not present only in declarations or tests while production bypasses it;
+- verify that declared layer direction is preserved by the production dependency graph.
+
+Report a blocking violation when an application service constructs or selects a concrete provider, adapter, transport, device, repository, or boundary that the applicable architecture assigns to a composition root or injection port. Do not invent a blanket dependency-injection rule: construction inside a service is a violation only when the applicable architecture places that decision elsewhere.
+
+Require a production-composition witness that substitutes or deliberately mismatches the dependency at the declared port and observes the specified typed acceptance or rejection. A unit test of the concrete adapter alone does not prove that the production composition honors the port.
+
+### Negotiation-before-preparation guard
+
+For every prepared artifact whose validity depends on a runtime-selected environment value—such as a device format, protocol version, schema revision, capacity, topology, feature set, page size, or hardware limit—trace:
+
+1. where the actual runtime value is negotiated or discovered;
+2. where it is validated;
+3. where dependent state is prepared;
+4. where runtime processing starts;
+5. how later runtime values are checked against the prepared contract.
+
+The required order is negotiate or discover → validate → prepare a complete compatible artifact → start runtime processing. Report a blocking violation when code prepares from a default or requested value before negotiation, ignores the actual negotiated value, silently truncates work beyond prepared capacity, or starts processing with an artifact prepared for an incompatible environment.
+
+Require controlled witnesses using at least one supported non-default negotiated value and relevant capacity boundaries. Unsupported configurations must fail visibly before processing begins; silent truncation, silent padding, or degraded fallback is not proof of compatibility.
+
+### Asynchronous runtime-failure guard
+
+Trace both startup failures and failures delivered after startup through callbacks, futures, event streams, worker completions, device notifications, and background tasks.
+
+When the applicable contract requires a typed, visible, observable, or recoverable failure:
+
+- every asynchronous error entry point must feed a bounded status, error transport, state transition, or other declared observation path;
+- an empty error handler, ignored callback argument, detached failed task, caught-and-discarded exception, conversion to unconditional success, or silent output is a blocking violation;
+- the observation must reach the declared control or user-visible boundary rather than remaining trapped inside an adapter;
+- success after startup must not be treated as proof that later failures are handled.
+
+Require a controlled negative witness that injects a failure after successful startup and proves the exact production observation or recovery behavior.
+
+### End-to-end failure-observability guard
+
+When a component returns a typed status or error and the applicable contract says the failure is observable, trace that result through every production caller.
+
+Report a blocking violation when a caller discards the result, reduces it to an unused boolean, catches it without recording the failure, substitutes ordinary success, or proves only that corrupt mutation did not occur. “Nothing was misrouted” and “the failure was observable” are separate obligations and require separate assertions.
+
+The behavioral witness must enter through the production composition seam, provoke the failure, prove that no forbidden mutation or fallback occurred, and independently prove the required error/status/counter observation. A direct component test that observes a returned error does not cover a production caller that later erases it.
+
+### Validation-declaration integrity guard
+
+Build a validation inventory from both:
+
+- `completion.projectChecks`; and
+- validations attached to every applicable CUE resource, relationship, capability, invariant, witness, or acceptance asset.
+
+Every applicable test-bearing validation declaration is independently binding. It must either execute with trustworthy nonzero evidence under its own declared selector or be rejected as malformed or unsupported. A broad test-suite command does not rehabilitate a stale targeted validation, and a targeted validation that selects zero tests must fail even when the complete suite passes.
+
+The deterministic report must bind evidence to the exact validation identity, declaration location, argument vector, provider, selector, and execution. Do not reuse an unrelated invocation's test count, a success marker, or a broad suite's count to make a zero-selection validation pass. Exact duplicate commands may share one physical execution, but each declaration must reference the same immutable evidence record and satisfy its own assertions and minimum execution count.
+
+If applicability cannot be derived deterministically from explicit evaluated metadata, fail closed or conservatively include the validation. Do not let the core acceptance service guess roadmap intent from prose.
+
 ## Deterministic acceptance service
 
 Create one core acceptance service with a coherent CLI surface. Prefer `openspec acceptance <change-name> [--json]` unless repository conventions identify a clearly better, non-conflicting name.
@@ -100,17 +177,18 @@ The service must:
 4. Strictly validate the selected OpenSpec change and every canonical specification affected by it using shared validator code.
 5. Provide a project/release mode that strictly validates all applicable OpenSpec material.
 6. Resolve every `completion.projectChecks` reference to exactly one project-scope validation. Missing, duplicated, malformed, or ambiguous references fail acceptance.
-7. Execute every resolved project check from its declared argument vector:
+7. Build the applicable validation inventory described above. Include resource- and witness-level test validations; do not assume a broad project check covers their declared selectors. Missing applicability metadata, orphaned evidence references, duplicated identities, and ambiguous ownership fail closed according to the designed schema.
+8. Execute every resolved project check and every applicable test-bearing validation from its declared argument vector:
    - never use shell interpolation;
    - use an explicit canonical working directory;
    - enforce the declared timeout and resource limits;
    - capture exit, signal, timeout, stdout, and stderr;
    - evaluate every declared assertion;
    - treat nonzero exit, signal termination, timeout, or failed assertion as blocking.
-8. Return nonzero whenever any mandatory gate fails.
-9. Produce deterministic human output and exactly one documented JSON result in JSON mode.
-10. Include execution provenance without recording environment secrets: validation ID, argument vector, working directory, timing, termination state, assertion results, test evidence, and bounded stdout/stderr diagnostics.
-11. Remain transient. Do not add a database, cache, generated status manifest, daemon, or mutable verification ledger.
+9. Return nonzero whenever any mandatory gate fails.
+10. Produce deterministic human output and exactly one documented JSON result in JSON mode.
+11. Include execution provenance without recording environment secrets: validation ID, declaration location and owner, argument vector, working directory, timing, termination state, assertion results, test evidence, and bounded stdout/stderr diagnostics.
+12. Remain transient. Do not add a database, cache, generated status manifest, daemon, or mutable verification ledger.
 
 Only explicit acceptance/check operations may execute repository-declared commands. `context`, `list`, ordinary progress reads, planning, and static validation must not unexpectedly execute them.
 
@@ -161,6 +239,7 @@ For every validation declared as a test suite:
 - do not count discovered, filtered, skipped, ignored, compiled, or merely enumerated tests as executed;
 - fail if the provider cannot establish an executed count;
 - fail if the evidence is malformed, internally inconsistent, or reports zero execution;
+- bind the executed count to the exact declared invocation and selector rather than another broad or related test run;
 - preserve the process result and test evidence as separate report fields.
 
 Do not infer test success from validation descriptions, filenames, success markers, or arbitrary human-readable text in core code. If a provider parses runner-specific output, that parser must be isolated in the provider and covered by provider-specific tests.
@@ -177,7 +256,9 @@ The review must:
 
 - read evaluated CUE before reviewing artifacts and implementation;
 - build the phase-aware obligation ledger above;
+- build an architecture-conformance matrix linking each applicable port, layer, composition decision, prepared-runtime constraint, failure channel, and validation declaration to its production implementation and witness;
 - trace current behavior through declared relationships, layers, boundaries, resources, assets, validations, witnesses, and production paths;
+- apply every mandatory architecture-drift guard above and distinguish local component correctness from end-to-end production conformance;
 - prefer production execution and controlled negative proof over success strings, mocks that bypass the behavior, or construction-only tests;
 - run the deterministic acceptance service;
 - never report `ready to archive` when a deterministic gate or applicable blocking finding fails;
@@ -226,6 +307,8 @@ Cover at least:
 
 - valid and invalid CUE evaluation;
 - missing, duplicated, malformed, and ambiguous project-check references;
+- an applicable resource-level test validation selecting zero tests while a broad project suite succeeds;
+- evidence from a broad test run being rejected when offered for a different targeted validation selector;
 - command success, nonzero exit, signal, timeout, and assertion failure;
 - a test provider reporting zero executed tests while the process exits successfully;
 - a provider reporting positive execution;
@@ -241,6 +324,19 @@ Cover at least:
 - projects without CUE retaining documented behavior;
 - generated verify/archive skill and command parity;
 - phase-aware wording that expressly forbids treating deferred roadmap scope as a violation.
+
+Also test the shared adversarial-review contract with self-contained fixtures that contain:
+
+- a declared injected port whose application service constructs the concrete adapter internally;
+- a declared port that exists in tests but is bypassed by production composition;
+- a prepared artifact built from a default before a different supported runtime value is negotiated;
+- work beyond a declared prepared capacity being silently truncated or padded;
+- an asynchronous error callback or failed task that is ignored after successful startup;
+- a component-level typed failure that a production caller discards;
+- a negative test that proves non-mutation but omits the separately required failure observation;
+- conforming counterparts for every case above so the review rules do not mandate one implementation style beyond the evaluated architecture.
+
+Keep these fixtures language-neutral or use multiple deliberately different fixture syntaxes. They test the review contract and evidence model, not a source-language parser.
 
 Follow `test/AGENTS.md` for cross-platform paths and canonicalization.
 
@@ -269,4 +365,6 @@ Report:
 - example JSON for a successful process that fails acceptance because it executed zero tests;
 - confirmation that adding another test runner requires only a provider, not changes to acceptance or archive logic;
 - confirmation that deferred roadmap functionality cannot produce a blocking violation;
+- confirmation that applicable resource-level test validations cannot hide behind a passing broad suite;
+- confirmation that composition, negotiation order, asynchronous failures, and end-to-end error observability were each exercised by conforming and violating fixtures;
 - confirmation that no user-owned work was reverted or overwritten.
