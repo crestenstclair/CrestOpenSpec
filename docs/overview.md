@@ -50,7 +50,7 @@ In the default setup, your day looks like this. Optionally think it through firs
 
 ```text
 /opsx:explore                   →  (optional) think it through with the AI first
-/opsx:propose add-dark-mode     →  AI drafts proposal, specs, design, tasks
+/opsx:propose add-dark-mode     →  AI drafts proposal, specs, design, tasks, summary
         (you read and adjust the plan)
 /opsx:apply                     →  AI builds it, checking off tasks
 /opsx:archive                   →  specs updated, change archived
@@ -64,7 +64,7 @@ Those are slash commands, typed in your AI assistant's chat. Setup (`openspec in
 
 This phrase shows up everywhere in OpenSpec, so here's what it means in plain terms.
 
-Old-school spec processes are waterfalls: finish planning, *then* you're allowed to implement, and going back is painful. OpenSpec refuses that. The order `proposal → specs → design → tasks` shows what becomes *possible* next, not what you're *forced* to do next.
+Old-school spec processes are waterfalls: finish planning, *then* you're allowed to implement, and going back is painful. OpenSpec refuses that. The order `proposal → specs → design → tasks → summary` shows what becomes *possible* next, not what you're *forced* to do next. The final summary is a compact bullet index, not another prose phase.
 
 Discover during implementation that the design was wrong? Edit `design.md` and keep going. Realize the scope should shrink? Update the proposal. Nothing locks. The dependencies exist only so the AI has the context it needs (you can't write good tasks without specs to base them on), not to box you in.
 

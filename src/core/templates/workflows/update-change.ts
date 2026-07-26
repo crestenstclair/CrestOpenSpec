@@ -6,6 +6,10 @@
  */
 import type { SkillTemplate, CommandTemplate } from '../types.js';
 import { STORE_SELECTION_GUIDANCE } from './store-selection.js';
+import {
+  CUE_PLANNING_RECONCILIATION_GUIDANCE,
+  DENSE_SUMMARY_GUIDANCE,
+} from './planning-guidance.js';
 
 export function getUpdateChangeSkillTemplate(): SkillTemplate {
   return {
@@ -47,6 +51,12 @@ ${STORE_SELECTION_GUIDANCE}
 
    The files to edit are \`artifactPaths.<id>.existingOutputPaths\` - the concrete files that exist on disk, already glob-expanded for glob artifacts (e.g. \`specs/**/*.md\`). Do NOT write to \`resolvedOutputPath\`: for a glob artifact it is still the glob pattern, not a real file.
 
+   Also load project architecture context:
+   \`\`\`bash
+   openspec context --json
+   \`\`\`
+   When \`architecture.kind\` is \`cue\`, \`architecture.files\` are writable planning sources and must be reconciled with the artifact revisions.
+
 3. **Understand the request**
    - If the user asked for a specific revision ("the design now uses X"), that is the starting edit.
    - If they only said "update" / "make this coherent", treat it as a coherence review: read the existing artifacts and check them against each other for contradictions, gaps, and duplication.
@@ -55,6 +65,8 @@ ${STORE_SELECTION_GUIDANCE}
    - Read the artifact(s) the request touches and the change's other existing artifacts.
    - Apply the requested edit. Then check every other existing artifact against it - in ANY direction: an edit to a later artifact may require revising an earlier one, not only the other way around. Build order is a useful reading order, not a constraint on which artifacts may be revised.
    - Note everything that is now inconsistent, missing, or contradictory.
+   - If the project has CUE architecture, reconcile the listed CUE sources in the same update. Do not turn required CUE edits into future implementation tasks.
+   - If a summary artifact already exists, revise it last so it remains a dense, bullet-only outline of the reconciled source artifacts and CUE model.
    - Revise only files that already exist (\`existingOutputPaths\`). Do NOT create artifacts that don't exist yet, and do NOT invent new files under a glob artifact - note them and point the user to \`/opsx:continue\` to create them.
    - If the change is already coherent, say so and make no edits.
 
@@ -75,13 +87,18 @@ ${STORE_SELECTION_GUIDANCE}
 
 After each invocation, show:
 - Which artifacts were revised (and which proposed revisions were rejected)
+- Which CUE sources were revised, or that the evaluated CUE required no semantic change
 - Anything deferred to \`/opsx:continue\` (not-yet-created artifacts or files)
 - Where the change stands and the recommended next command
 
+${CUE_PLANNING_RECONCILIATION_GUIDANCE}
+
+${DENSE_SUMMARY_GUIDANCE}
+
 **Guardrails**
-- Planning artifacts only - NEVER edit implementation code. If the revised plan implies code changes, stop and point to \`/opsx:apply\`.
+- Planning artifacts and listed CUE architecture sources only - NEVER edit implementation code. If the revised plan implies code changes, stop and point to \`/opsx:apply\`.
 - Use the artifact ids and paths reported by \`openspec status\`; never branch on hardcoded artifact names.
-- Edit only the concrete files in \`existingOutputPaths\`; never write to a glob \`resolvedOutputPath\`.
+- For change artifacts, edit only the concrete files in \`existingOutputPaths\`; never write to a glob \`resolvedOutputPath\`. Existing paths in \`architecture.files\` are the explicit CUE exception.
 - Do not advance the build frontier: no new artifacts, no new files under glob artifacts - that is \`/opsx:continue\`'s job.
 - Confirm every edit with the user before writing.
 - If the request changes the change's *intent* rather than refining it, recommend starting fresh with \`/opsx:new\` (the "Update vs. Start Fresh" heuristic).`,
@@ -133,6 +150,12 @@ ${STORE_SELECTION_GUIDANCE}
 
    The files to edit are \`artifactPaths.<id>.existingOutputPaths\` - the concrete files that exist on disk, already glob-expanded for glob artifacts (e.g. \`specs/**/*.md\`). Do NOT write to \`resolvedOutputPath\`: for a glob artifact it is still the glob pattern, not a real file.
 
+   Also load project architecture context:
+   \`\`\`bash
+   openspec context --json
+   \`\`\`
+   When \`architecture.kind\` is \`cue\`, \`architecture.files\` are writable planning sources and must be reconciled with the artifact revisions.
+
 3. **Understand the request**
    - If the user asked for a specific revision ("the design now uses X"), that is the starting edit.
    - If they only said "update" / "make this coherent", treat it as a coherence review: read the existing artifacts and check them against each other for contradictions, gaps, and duplication.
@@ -141,6 +164,8 @@ ${STORE_SELECTION_GUIDANCE}
    - Read the artifact(s) the request touches and the change's other existing artifacts.
    - Apply the requested edit. Then check every other existing artifact against it - in ANY direction: an edit to a later artifact may require revising an earlier one, not only the other way around. Build order is a useful reading order, not a constraint on which artifacts may be revised.
    - Note everything that is now inconsistent, missing, or contradictory.
+   - If the project has CUE architecture, reconcile the listed CUE sources in the same update. Do not turn required CUE edits into future implementation tasks.
+   - If a summary artifact already exists, revise it last so it remains a dense, bullet-only outline of the reconciled source artifacts and CUE model.
    - Revise only files that already exist (\`existingOutputPaths\`). Do NOT create artifacts that don't exist yet, and do NOT invent new files under a glob artifact - note them and point the user to \`/opsx:continue\` to create them.
    - If the change is already coherent, say so and make no edits.
 
@@ -161,13 +186,18 @@ ${STORE_SELECTION_GUIDANCE}
 
 After each invocation, show:
 - Which artifacts were revised (and which proposed revisions were rejected)
+- Which CUE sources were revised, or that the evaluated CUE required no semantic change
 - Anything deferred to \`/opsx:continue\` (not-yet-created artifacts or files)
 - Where the change stands and the recommended next command
 
+${CUE_PLANNING_RECONCILIATION_GUIDANCE}
+
+${DENSE_SUMMARY_GUIDANCE}
+
 **Guardrails**
-- Planning artifacts only - NEVER edit implementation code. If the revised plan implies code changes, stop and point to \`/opsx:apply\`.
+- Planning artifacts and listed CUE architecture sources only - NEVER edit implementation code. If the revised plan implies code changes, stop and point to \`/opsx:apply\`.
 - Use the artifact ids and paths reported by \`openspec status\`; never branch on hardcoded artifact names.
-- Edit only the concrete files in \`existingOutputPaths\`; never write to a glob \`resolvedOutputPath\`.
+- For change artifacts, edit only the concrete files in \`existingOutputPaths\`; never write to a glob \`resolvedOutputPath\`. Existing paths in \`architecture.files\` are the explicit CUE exception.
 - Do not advance the build frontier: no new artifacts, no new files under glob artifacts - that is \`/opsx:continue\`'s job.
 - Confirm every edit with the user before writing.
 - If the request changes the change's *intent* rather than refining it, recommend starting fresh with \`/opsx:new\` (the "Update vs. Start Fresh" heuristic).`

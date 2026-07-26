@@ -141,7 +141,7 @@ AI CHAT      /opsx:explore
               (optional: think the idea through with the AI first)
 
 AI CHAT      /opsx:propose add-dark-mode
-              (AI drafts proposal, specs, design, tasks)
+              (AI drafts proposal, specs, design, tasks, summary)
 
 AI CHAT      /opsx:apply
               (AI builds it, checking off tasks)

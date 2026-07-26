@@ -50,7 +50,7 @@ Create a new change and generate planning artifacts in one step. This is the def
 
 **What it does:**
 - Creates `openspec/changes/<change-name>/`
-- Generates artifacts needed before implementation (for `spec-driven`: proposal, specs, design, tasks)
+- Generates artifacts needed before implementation (for `spec-driven`: proposal, specs, design, tasks, summary)
 - Stops when the change is ready for `/opsx:apply`
 
 **Example:**
@@ -669,7 +669,7 @@ These commands use the older "all-at-once" workflow. They still work but OPSX co
 
 | Command | What it does |
 |---------|--------------|
-| `/openspec:proposal` | Create all artifacts at once (proposal, specs, design, tasks) |
+| `/openspec:proposal` | Create all artifacts at once (proposal, specs, design, tasks, summary) |
 | `/openspec:apply` | Implement the change |
 | `/openspec:archive` | Archive the change |
 

@@ -703,12 +703,13 @@ openspec status --change add-dark-mode --json
 ```
 Change: add-dark-mode
 Schema: spec-driven
-Progress: 2/4 artifacts complete
+Progress: 2/5 artifacts complete
 
 [x] proposal
 [ ] design
 [x] specs
 [-] tasks (blocked by: design)
+[-] summary (blocked by: design, tasks)
 ```
 
 **Output (JSON):**
@@ -718,12 +719,13 @@ Progress: 2/4 artifacts complete
   "changeName": "add-dark-mode",
   "schemaName": "spec-driven",
   "isComplete": false,
-  "applyRequires": ["tasks"],
+  "applyRequires": ["tasks", "summary"],
   "artifacts": [
     {"id": "proposal", "outputPath": "proposal.md", "status": "done"},
     {"id": "design", "outputPath": "design.md", "status": "ready"},
     {"id": "specs", "outputPath": "specs/**/*.md", "status": "done"},
-    {"id": "tasks", "outputPath": "tasks.md", "status": "blocked", "missingDeps": ["design"]}
+    {"id": "tasks", "outputPath": "tasks.md", "status": "blocked", "missingDeps": ["design"]},
+    {"id": "summary", "outputPath": "summary.md", "status": "blocked", "missingDeps": ["design", "tasks"]}
   ]
 }
 ```
@@ -742,7 +744,7 @@ openspec instructions [artifact] [options]
 
 | Argument | Required | Description |
 |----------|----------|-------------|
-| `artifact` | No | Artifact ID: `proposal`, `specs`, `design`, `tasks`, or `apply` |
+| `artifact` | No | Artifact ID: `proposal`, `specs`, `design`, `tasks`, `summary`, or `apply` |
 
 **Options:**
 
@@ -848,7 +850,7 @@ Available schemas:
 
   spec-driven (package)
     The default spec-driven development workflow
-    Flow: proposal → specs → design → tasks
+    Flow: proposal → specs → design → tasks → summary
 
   my-custom (project)
     Custom workflow for this project

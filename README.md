@@ -146,9 +146,9 @@ Both are in the default profile. If you want the expanded workflow (`/opsx:new`,
 
 ### CUE architecture
 
-This fork treats the top-level `spec/*.cue` package as the project's authoritative architecture. Before proposal, design, specification, task, exploration, and apply work, OpenSpec evaluates those files as one CUE package rooted at `project`. It injects the resolved project plus a deterministic relationship index into the agent's native project-context channel, while also identifying the original CUE sources.
+This fork treats the top-level `spec/*.cue` package as the project's authoritative, information-dense architecture. Before proposal, design, specification, task, summary, exploration, and apply work, OpenSpec evaluates those files as one CUE package rooted at `project`. It injects the resolved project plus a deterministic relationship index into the agent's native project-context channel and exposes the concrete sources as `contextFiles.cue` during planning.
 
-The rendering is transient and exists only while instructions are assembled. There is no generated architecture export or database to synchronize. Edit the CUE files directly; OpenSpec consumes them in place and fails planning when they conflict or cannot resolve to concrete values.
+The rendering is transient and exists only while instructions are assembled. There is no generated architecture export or database to synchronize. Planning edits the CUE sources directly whenever the planned architecture changes, reevaluates them, and must not defer that reconciliation to implementation. The final required `summary.md` is a short, bullet-only outline of the full plan; CUE remains the denser authoritative model for readers who do not need the Markdown detail.
 
 > [!NOTE]
 > Not sure if your tool is supported? [View the full list](docs/supported-tools.md) – we support 25+ tools and growing.
@@ -190,7 +190,7 @@ Third-party schema bundles distributed via standalone repositories — these pro
 AI coding assistants are powerful but unpredictable when requirements live only in chat history. OpenSpec adds a lightweight spec layer so you agree on what to build before any code is written.
 
 - **Agree before you build** — human and AI align on specs before code gets written
-- **Stay organized** — each change gets its own folder with proposal, specs, design, and tasks
+- **Stay organized** — each change gets proposal, specs, design, tasks, and a dense bullet summary
 - **Work fluidly** — update any artifact anytime, no rigid phase gates
 - **Use your tools** — works with 30+ AI assistants via slash commands
 

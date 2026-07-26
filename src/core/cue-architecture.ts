@@ -37,8 +37,9 @@ export const CUE_INTERPRETATION_CONTRACT = `How to interpret and use the CUE arc
 Evaluation and authority
 - All listed files are one CUE package. Declarations across files unify; they are not overrides processed in file order.
 - The rendered project below is the concrete result of CUE evaluation at the top-level \`project\` field. It is the primary architecture input to planning.
-- CUE is authoritative for architectural intent, boundaries, dependency direction, contracts, invariants, traceability, and verification. OpenSpec keeps its native proposal/spec/design/task workflow and uses CUE to constrain the contents of those artifacts.
-- Never silently plan around a conflict with CUE. Call out the conflict. If the requested change genuinely changes architecture, include an explicit CUE edit in the plan.
+- CUE is authoritative for architectural intent, boundaries, dependency direction, contracts, invariants, traceability, and verification. OpenSpec keeps its native proposal/spec/design/task/summary workflow and uses CUE to constrain the contents of those artifacts.
+- CUE is also the dense, user-facing overview of that architecture. Keep declarations concise and relational; encode the authoritative model and proof instead of copying explanatory Markdown prose.
+- Never silently plan around a conflict with CUE. If the requested change changes architecture, update the listed CUE sources during planning and evaluate them again. Do not defer CUE reconciliation to tasks or apply. Planning is incomplete while CUE and the Markdown artifacts disagree.
 
 Intent model
 - \`mission\` is the whole-project why and must inform every local decision. \`nonGoals\` are explicit exclusions.
@@ -76,7 +77,8 @@ How CUE drives OpenSpec artifacts
 - Proposal: ground Why and scope in mission, goals, non-goals, capabilities, and requirements. Name the affected canonical IDs.
 - Specs: derive observable behavior from capabilities, acceptance scenarios, requirements, invariants, and evidence while keeping OpenSpec requirement/scenario syntax.
 - Design: map the change onto bounded contexts and canonical resources. Show existing and changed relations; obey ports, context maps, layers, and dependency direction.
-- Tasks: sequence deliberate CUE edits (when architecture changes), implementation assets/resources, and validations/witnesses. Do not create bookkeeping tasks for mirroring CUE elsewhere.
+- Tasks: sequence implementation assets/resources and validations/witnesses. CUE edits belong to planning itself, not a future bookkeeping task.
+- Summary: provide a short, bullet-only outline of the other artifacts and the reconciled CUE model. It is an index, not another prose design document.
 - Apply: implement against the rendered model and relevant CUE sources. Preserve OpenSpec task tracking, but treat CUE constraints and relationships as the architectural source of truth.`;
 
 function isDirectory(candidatePath: string): boolean {

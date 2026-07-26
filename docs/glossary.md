@@ -60,7 +60,7 @@ Terms are grouped by topic, then alphabetized within each group.
 
 ## Customization
 
-**Schema.** The definition of which artifacts a workflow has and how they depend on one another. The built-in default is `spec-driven` (proposal → specs → design → tasks). You can fork it or write your own. See [Customization](customization.md#custom-schemas).
+**Schema.** The definition of which artifacts a workflow has and how they depend on one another. The built-in default is `spec-driven` (proposal → specs → design → tasks → summary). You can fork it or write your own. See [Customization](customization.md#custom-schemas).
 
 **Template.** A Markdown file inside a schema that shapes what the AI generates for a given artifact. Editing a template changes the AI's output immediately, with no rebuild.
 

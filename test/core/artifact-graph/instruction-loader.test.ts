@@ -152,6 +152,24 @@ describe('instruction-loader', () => {
       expect(instructions.template).toContain('## Why');
     });
 
+    it('should make the final summary a compact outline of every planning artifact', () => {
+      const context = loadChangeContext(tempDir, 'my-change');
+      const instructions = generateInstructions(context, 'summary');
+
+      expect(instructions.outputPath).toBe('summary.md');
+      expect(instructions.dependencies.map((dependency) => dependency.id)).toEqual([
+        'proposal',
+        'specs',
+        'design',
+        'tasks',
+      ]);
+      expect(instructions.instruction).toContain('headings followed only by bullets');
+      expect(instructions.instruction).toContain('never exceed 300 words');
+      expect(instructions.instruction).toContain('Do not defer CUE reconciliation');
+      expect(instructions.template).toContain('# Change Summary');
+      expect(instructions.template).toContain('- **Result:**');
+    });
+
     it('should show dependencies with completion status', () => {
       const context = loadChangeContext(tempDir, 'my-change');
       const instructions = generateInstructions(context, 'specs');
@@ -573,6 +591,7 @@ rules:
       fs.writeFileSync(path.join(changeDir, 'specs', 'test.md'), '# Spec');
       fs.writeFileSync(path.join(changeDir, 'design.md'), '# Design');
       fs.writeFileSync(path.join(changeDir, 'tasks.md'), '# Tasks');
+      fs.writeFileSync(path.join(changeDir, 'summary.md'), '# Change Summary\n\n- Summary');
 
       const context = loadChangeContext(tempDir, 'my-change');
       const status = formatChangeStatus(context);

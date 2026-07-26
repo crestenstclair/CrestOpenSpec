@@ -6,6 +6,11 @@
  */
 import type { SkillTemplate, CommandTemplate } from '../types.js';
 import { STORE_SELECTION_GUIDANCE } from './store-selection.js';
+import {
+  CUE_PLANNING_RECONCILIATION_GUIDANCE,
+  DENSE_SUMMARY_GUIDANCE,
+  SPEC_DRIVEN_ARTIFACT_FLOW,
+} from './planning-guidance.js';
 
 export function getOnboardSkillTemplate(): SkillTemplate {
   return {
@@ -56,7 +61,7 @@ I'll walk you through a complete change cycle—from idea to implementation—us
 1. Pick a small, real task in your codebase
 2. Explore the problem briefly
 3. Create a change (the container for our work)
-4. Build the artifacts: proposal → specs → design → tasks
+4. Build the artifacts: ${SPEC_DRIVEN_ARTIFACT_FLOW}
 5. Implement the tasks
 6. Archive the completed change
 
@@ -179,7 +184,7 @@ Now let's create a change to hold our work.
 \`\`\`
 ## Creating a Change
 
-A "change" in OpenSpec is a container for all the thinking and planning around a piece of work. It lives at the \`changeRoot\` reported by \`openspec status --change "<name>" --json\` and holds your artifacts—proposal, specs, design, tasks.
+A "change" in OpenSpec is a container for all the thinking and planning around a piece of work. It lives at the \`changeRoot\` reported by \`openspec status --change "<name>" --json\` and holds your artifacts—proposal, specs, design, tasks, and a dense summary.
 
 Let me create one for our task.
 \`\`\`
@@ -199,7 +204,8 @@ The folder structure:
 ├── proposal.md    ← Why we're doing this (empty, we'll fill it)
 ├── design.md      ← How we'll build it (empty)
 ├── specs/         ← Detailed requirements (empty)
-└── tasks.md       ← Implementation checklist (empty)
+├── tasks.md       ← Implementation checklist (empty)
+└── summary.md     ← Dense plan outline (empty)
 \`\`\`
 
 Now let's fill in the first artifact—the proposal.
@@ -386,7 +392,7 @@ Here are the implementation tasks:
 
 ---
 
-Each checkbox becomes a unit of work in the apply phase. Ready to implement?
+Each checkbox becomes a unit of work in the apply phase. Next we'll condense and reconcile the plan before implementation.
 \`\`\`
 
 **PAUSE** - Wait for user to confirm they're ready to implement.
@@ -395,7 +401,32 @@ Save to the \`resolvedOutputPath\` from \`openspec instructions tasks --change "
 
 ---
 
-## Phase 9: Apply (Implementation)
+## Phase 9: Summary and CUE Reconciliation
+
+**EXPLAIN:**
+\`\`\`
+## Dense Summary
+
+Before implementation, we'll reconcile any CUE architecture and create a short bullet outline. This is the plan's entry point—not another long document.
+\`\`\`
+
+**DO:** Load the final artifact instructions:
+\`\`\`bash
+openspec instructions summary --change "<name>" --json
+\`\`\`
+
+- Re-read every dependency returned by the command.
+- If \`contextFiles.cue\` is present, read and update those CUE sources so they represent the final plan, then run \`openspec context --json\` to evaluate them again.
+- Generate \`summary.md\` from its template using headings and 10-16 bullets, with no prose paragraphs and no more than 300 words.
+- Save it to \`resolvedOutputPath\`, then run \`openspec status --change "<name>"\` and confirm all artifacts are complete.
+
+${CUE_PLANNING_RECONCILIATION_GUIDANCE}
+
+${DENSE_SUMMARY_GUIDANCE}
+
+---
+
+## Phase 10: Apply (Implementation)
 
 **EXPLAIN:**
 \`\`\`
@@ -429,7 +460,7 @@ The change is implemented! One more step—let's archive it.
 
 ---
 
-## Phase 10: Archive
+## Phase 11: Archive
 
 **EXPLAIN:**
 \`\`\`
@@ -454,7 +485,7 @@ The change is now part of your project's history. The code is in your codebase, 
 
 ---
 
-## Phase 11: Recap & Next Steps
+## Phase 12: Recap & Next Steps
 
 \`\`\`
 ## Congratulations!
@@ -467,8 +498,9 @@ You just completed a full OpenSpec cycle:
 4. **Specs** - Defined WHAT in detail
 5. **Design** - Decided HOW
 6. **Tasks** - Broke it into steps
-7. **Apply** - Implemented the work
-8. **Archive** - Preserved the record
+7. **Summary** - Condensed and reconciled the plan
+8. **Apply** - Implemented the work
+9. **Archive** - Preserved the record
 
 This same rhythm works for any size change—a small fix or a major feature.
 
@@ -555,7 +587,7 @@ Exit gracefully.
 
 ## Guardrails
 
-- **Follow the EXPLAIN → DO → SHOW → PAUSE pattern** at key transitions (after explore, after proposal draft, after tasks, after archive)
+- **Follow the EXPLAIN → DO → SHOW → PAUSE pattern** at key transitions (after explore, after proposal draft, after summary, after archive)
 - **Keep narration light** during implementation—teach without lecturing
 - **Don't skip phases** even if the change is small—the goal is teaching the workflow
 - **Pause for acknowledgment** at marked points, but don't over-pause

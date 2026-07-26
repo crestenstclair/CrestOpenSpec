@@ -61,7 +61,7 @@ ${STORE_SELECTION_GUIDANCE}
    Read and follow \`context\` first. When it contains a CUE architecture, treat the resolved model and relationships as authoritative constraints on implementation; edit the listed CUE sources only when the planned architecture itself changes.
    Read every file path listed under \`contextFiles\` from the apply instructions output.
    The files depend on the schema being used:
-   - **spec-driven**: proposal, specs, design, tasks
+   - **spec-driven**: proposal, specs, design, tasks, summary
    - Other schemas: follow the contextFiles from CLI output
 
 5. **Show current progress**
@@ -165,7 +165,7 @@ What would you like to do?
 
 This skill supports the "actions on a change" model:
 
-- **Can be invoked anytime**: Before all artifacts are done (if tasks exist), after partial implementation, interleaved with other actions
+- **Can be invoked anytime**: Before planning is complete, after partial implementation, or interleaved with other actions; only implement when the CLI reports \`state: "ready"\` (the built-in schema requires both tasks and summary)
 - **Allows artifact updates**: If implementation reveals design issues, suggest updating artifacts - not phase-locked, work fluidly`,
     license: 'MIT',
     compatibility: 'Requires openspec CLI.',
@@ -228,7 +228,7 @@ ${STORE_SELECTION_GUIDANCE}
    Read and follow \`context\` first. When it contains a CUE architecture, treat the resolved model and relationships as authoritative constraints on implementation; edit the listed CUE sources only when the planned architecture itself changes.
    Read every file path listed under \`contextFiles\` from the apply instructions output.
    The files depend on the schema being used:
-   - **spec-driven**: proposal, specs, design, tasks
+   - **spec-driven**: proposal, specs, design, tasks, summary
    - Other schemas: follow the contextFiles from CLI output
 
 5. **Show current progress**
@@ -332,7 +332,7 @@ What would you like to do?
 
 This skill supports the "actions on a change" model:
 
-- **Can be invoked anytime**: Before all artifacts are done (if tasks exist), after partial implementation, interleaved with other actions
+- **Can be invoked anytime**: Before planning is complete, after partial implementation, or interleaved with other actions; only implement when the CLI reports \`state: "ready"\` (the built-in schema requires both tasks and summary)
 - **Allows artifact updates**: If implementation reveals design issues, suggest updating artifacts - not phase-locked, work fluidly`
   };
 }

@@ -6,6 +6,10 @@
  */
 import type { SkillTemplate, CommandTemplate } from '../types.js';
 import { STORE_SELECTION_GUIDANCE } from './store-selection.js';
+import {
+  CUE_PLANNING_RECONCILIATION_GUIDANCE,
+  DENSE_SUMMARY_GUIDANCE,
+} from './planning-guidance.js';
 
 export function getFfChangeSkillTemplate(): SkillTemplate {
   return {
@@ -39,7 +43,7 @@ ${STORE_SELECTION_GUIDANCE}
    openspec status --change "<name>" --json
    \`\`\`
    Parse the JSON to get:
-   - \`applyRequires\`: array of artifact IDs needed before implementation (e.g., \`["tasks"]\`)
+   - \`applyRequires\`: array of artifact IDs needed before implementation (e.g., \`["tasks", "summary"]\`)
    - \`artifacts\`: list of all artifacts with their status and dependencies
    - \`planningHome\`, \`changeRoot\`, \`artifactPaths\`, and \`actionContext\`: path and scope context. Use these instead of assuming repo-local paths.
 
@@ -56,6 +60,7 @@ ${STORE_SELECTION_GUIDANCE}
         \`\`\`
       - The instructions JSON includes:
         - \`context\`: Project background (constraints for you - do NOT include in output)
+        - \`contextFiles.cue\`: Concrete CUE sources to reconcile during planning, when present
         - \`rules\`: Artifact-specific rules (constraints for you - do NOT include in output)
         - \`template\`: The structure to use for your output file
         - \`instruction\`: Schema-specific guidance for this artifact type
@@ -97,6 +102,10 @@ After completing all artifacts, summarize:
 - **IMPORTANT**: \`context\` and \`rules\` are constraints for YOU, not content for the file
   - Do NOT copy \`<context>\`, \`<rules>\`, \`<project_context>\` blocks into the artifact
   - These guide what you write, but should never appear in the output
+
+${CUE_PLANNING_RECONCILIATION_GUIDANCE}
+
+${DENSE_SUMMARY_GUIDANCE}
 
 **Guardrails**
 - Create ALL artifacts needed for implementation (as defined by schema's \`apply.requires\`)
@@ -144,7 +153,7 @@ ${STORE_SELECTION_GUIDANCE}
    openspec status --change "<name>" --json
    \`\`\`
    Parse the JSON to get:
-   - \`applyRequires\`: array of artifact IDs needed before implementation (e.g., \`["tasks"]\`)
+   - \`applyRequires\`: array of artifact IDs needed before implementation (e.g., \`["tasks", "summary"]\`)
    - \`artifacts\`: list of all artifacts with their status and dependencies
    - \`planningHome\`, \`changeRoot\`, \`artifactPaths\`, and \`actionContext\`: path and scope context. Use these instead of assuming repo-local paths.
 
@@ -161,6 +170,7 @@ ${STORE_SELECTION_GUIDANCE}
         \`\`\`
       - The instructions JSON includes:
         - \`context\`: Project background (constraints for you - do NOT include in output)
+        - \`contextFiles.cue\`: Concrete CUE sources to reconcile during planning, when present
         - \`rules\`: Artifact-specific rules (constraints for you - do NOT include in output)
         - \`template\`: The structure to use for your output file
         - \`instruction\`: Schema-specific guidance for this artifact type
@@ -202,6 +212,10 @@ After completing all artifacts, summarize:
 - **IMPORTANT**: \`context\` and \`rules\` are constraints for YOU, not content for the file
   - Do NOT copy \`<context>\`, \`<rules>\`, \`<project_context>\` blocks into the artifact
   - These guide what you write, but should never appear in the output
+
+${CUE_PLANNING_RECONCILIATION_GUIDANCE}
+
+${DENSE_SUMMARY_GUIDANCE}
 
 **Guardrails**
 - Create ALL artifacts needed for implementation (as defined by schema's \`apply.requires\`)

@@ -23,6 +23,7 @@ describe('CUE architecture in workflow instructions', () => {
       '## ADDED Requirements\n'
     );
     await fs.writeFile(path.join(changeDir, 'tasks.md'), '## Tasks\n- [ ] Implement checkout\n');
+    await fs.writeFile(path.join(changeDir, 'summary.md'), '# Change Summary\n\n- Add checkout\n');
     await fs.writeFile(
       path.join(specDir, 'project.cue'),
       'package architecture\nproject: {name: "shop", adapters: Stripe: implements: "port.Checkout.Payment"}\n'
@@ -52,8 +53,10 @@ describe('CUE architecture in workflow instructions', () => {
     const payload = JSON.parse(result.stdout);
     expect(payload.context).toContain('CUE architecture (authoritative)');
     expect(payload.context).toContain('primary architecture input to planning');
+    expect(payload.context).toContain('update the listed CUE sources during planning');
     expect(payload.context).toContain('Owns checkout');
     expect(payload.context).toContain('adapter.Stripe` --implements--> `port.Checkout.Payment');
+    expect(payload.contextFiles.cue).toEqual(cueFiles);
     for (const cueFile of cueFiles) {
       expect(payload.context).toContain(cueFile);
     }
@@ -70,6 +73,20 @@ describe('CUE architecture in workflow instructions', () => {
     expect(payload.context).toContain('Owns checkout');
     expect(payload.context).toContain('adapter.Stripe` --implements--> `port.Checkout.Payment');
     expect(payload.contextFiles.cue).toEqual(cueFiles);
+  });
+
+  it('prints CUE planning sources in human-readable artifact instructions', async () => {
+    const result = await runCLI(
+      ['instructions', 'summary', '--change', 'add-checkout'],
+      { cwd: projectRoot }
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('<context_files>');
+    expect(result.stdout).toContain('<files kind="cue">');
+    for (const cueFile of cueFiles) {
+      expect(result.stdout).toContain(`<path>${cueFile}</path>`);
+    }
   });
 
   it('exposes the same evaluated architecture to exploration through context', async () => {
@@ -118,6 +135,7 @@ describe('CUE architecture in workflow instructions', () => {
     );
 
     expect(JSON.parse(artifactResult.stdout).context).toBeUndefined();
+    expect(JSON.parse(artifactResult.stdout).contextFiles?.cue).toBeUndefined();
     expect(JSON.parse(applyResult.stdout).contextFiles.cue).toBeUndefined();
   });
 });

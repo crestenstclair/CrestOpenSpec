@@ -171,6 +171,12 @@ async function writeCompletedChangeArtifacts(
     '# Tasks\n\n## 1. Work\n\n- [x] 1.1 Do the work\n',
     'utf-8'
   );
+
+  await fs.writeFile(
+    path.join(changeDir, 'summary.md'),
+    '# Change Summary\n\n- **Result:** Lifecycle proof is planned and complete.\n',
+    'utf-8'
+  );
 }
 
 beforeAll(async () => {

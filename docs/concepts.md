@@ -429,6 +429,10 @@ artifacts:
   - id: tasks
     generates: tasks.md
     requires: [specs, design] # Needs both specs and design first
+
+  - id: summary
+    generates: summary.md
+    requires: [proposal, specs, design, tasks] # Final dense outline
 ```
 
 **Artifacts form a dependency graph:**
@@ -450,6 +454,11 @@ artifacts:
                     tasks
                 (requires:
                 specs, design)
+                       │
+                       ▼
+                   summary
+                (requires all
+               planning artifacts)
 ```
 
 **Dependencies are enablers, not gates.** They show what's possible to create, not what you must create next. You can skip design if you don't need it. You can create specs before or after design — both depend only on proposal.
@@ -461,7 +470,7 @@ artifacts:
 The standard workflow for spec-driven development:
 
 ```
-proposal → specs → design → tasks → implement
+proposal → specs → design → tasks → summary → implement
 ```
 
 Best for: Most feature work where you want to agree on specs before implementation.
@@ -569,7 +578,7 @@ openspec/
 │           ▼                                                                  │
 │   ┌────────────────┐                                                         │
 │   │  2. CREATE     │  /opsx:ff or /opsx:continue (expanded workflow)         │
-│   │     ARTIFACTS  │  Creates proposal → specs → design → tasks              │
+│   │     ARTIFACTS  │  Creates proposal → specs → design → tasks → summary    │
 │   │                │  (based on schema dependencies)                         │
 │   └───────┬────────┘                                                         │
 │           │                                                                  │

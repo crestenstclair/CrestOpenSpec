@@ -92,6 +92,8 @@ export interface ArtifactInstructions {
   instruction: string | undefined;
   /** Project context from config (constraints/background for AI, not to be included in output) */
   context: string | undefined;
+  /** Concrete project context sources that planning may need to reconcile. */
+  contextFiles?: Record<string, string[]>;
   /** Artifact-specific rules from config (constraints for AI, not to be included in output) */
   rules: string[] | undefined;
   /** Referenced-store index (read-only upstream context; omitted when no references are declared) */
@@ -328,6 +330,9 @@ export function generateInstructions(
   const cueContext = cueArchitecture
     ? renderCueArchitectureContext(cueArchitecture)
     : undefined;
+  const contextFiles = cueArchitecture
+    ? { cue: cueArchitecture.files }
+    : undefined;
 
   // Extract context and rules as separate fields (not prepended to template).
   // User-authored context remains first; authoritative architecture follows.
@@ -350,6 +355,7 @@ export function generateInstructions(
     description: artifact.description,
     instruction: artifact.instruction,
     context: configContext,
+    ...(contextFiles ? { contextFiles } : {}),
     rules: configRules,
     ...(options.references !== undefined ? { references: options.references } : {}),
     template: templateContent,

@@ -632,7 +632,7 @@ artifacts:
 
 Schemas define what artifacts exist and their dependencies. Currently available:
 
-- **spec-driven** (default): proposal → specs → design → tasks
+- **spec-driven** (default): proposal → specs → design → tasks → summary
 
 ```bash
 # List available schemas

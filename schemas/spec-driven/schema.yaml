@@ -1,6 +1,6 @@
 name: spec-driven
 version: 1
-description: Default OpenSpec workflow - proposal → specs → design → tasks
+description: Default OpenSpec workflow - proposal → specs → design → tasks → summary
 artifacts:
   - id: proposal
     generates: proposal.md
@@ -171,8 +171,48 @@ artifacts:
       - specs
       - design
 
+  - id: summary
+    generates: summary.md
+    description: Dense, high-level outline of the completed planning artifacts
+    template: summary.md
+    instruction: |
+      Create summary.md as the compact entry point to the completed plan.
+
+      Before writing it:
+      - Re-read proposal.md, every generated spec, design.md, and tasks.md.
+      - If `contextFiles.cue` is present, read every listed CUE source and update
+        the CUE package now so it represents the final planned model, including
+        affected goals, capabilities, requirements, architecture resources,
+        relationships, constraints, evidence, and validations.
+        Planning is not complete while the Markdown artifacts and CUE disagree.
+        Do not defer CUE reconciliation to tasks.md or the apply phase.
+      - Keep CUE declarations information-dense. Encode the authoritative model,
+        decisions, constraints, resources, relationships, and proof; do not copy
+        Markdown prose into CUE.
+      - After any CUE edit, run `openspec context --json` to evaluate the package
+        again. A conflict, incomplete value, or stale architecture blocks
+        completion of this artifact. If no CUE edit is needed, still verify and
+        report that the package already matches the final plan.
+
+      summary.md is a navigation aid, not another design document:
+      - Use headings followed only by bullets or nested bullets.
+      - Do not use prose paragraphs, tables, code blocks, or narrative history.
+      - Use 10-16 bullets when possible and never exceed 300 words.
+      - Capture the outcome, change outline, affected capabilities and canonical
+        CUE resource IDs, key decisions, implementation order, validation, and
+        material risks or open questions.
+      - Omit empty sections and avoid repeating detail that belongs in the source
+        artifacts. Point to the relevant artifact when a reader needs more depth.
+      - Introduce no new requirements, decisions, or tasks. Reconcile the source
+        artifact first if the summary exposes a gap.
+    requires:
+      - proposal
+      - specs
+      - design
+      - tasks
+
 apply:
-  requires: [tasks]
+  requires: [tasks, summary]
   tracks: tasks.md
   instruction: |
     Read context files, work through pending tasks, mark complete as you go.

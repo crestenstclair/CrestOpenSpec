@@ -183,6 +183,7 @@ export function printInstructionsText(instructions: ArtifactInstructions, isBloc
     description,
     instruction,
     context,
+    contextFiles,
     rules,
     template,
     dependencies,
@@ -216,6 +217,21 @@ export function printInstructionsText(instructions: ArtifactInstructions, isBloc
     console.log('<!-- This is background information for you. Do NOT include this in your output. -->');
     console.log(context);
     console.log('</project_context>');
+    console.log();
+  }
+
+  // Concrete planning sources (writable when the plan changes their model)
+  if (contextFiles && Object.keys(contextFiles).length > 0) {
+    console.log('<context_files>');
+    console.log('Read these source files directly. Reconcile writable planning sources when the plan changes them:');
+    for (const [kind, files] of Object.entries(contextFiles)) {
+      console.log(`<files kind="${kind}">`);
+      for (const file of files) {
+        console.log(`  <path>${file}</path>`);
+      }
+      console.log('</files>');
+    }
+    console.log('</context_files>');
     console.log();
   }
 

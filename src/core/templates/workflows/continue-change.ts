@@ -6,6 +6,11 @@
  */
 import type { SkillTemplate, CommandTemplate } from '../types.js';
 import { STORE_SELECTION_GUIDANCE } from './store-selection.js';
+import {
+  CUE_PLANNING_RECONCILIATION_GUIDANCE,
+  DENSE_SUMMARY_GUIDANCE,
+  SPEC_DRIVEN_ARTIFACT_FLOW,
+} from './planning-guidance.js';
 
 export function getContinueChangeSkillTemplate(): SkillTemplate {
   return {
@@ -63,6 +68,7 @@ ${STORE_SELECTION_GUIDANCE}
      \`\`\`
    - Parse the JSON. The key fields are:
      - \`context\`: Project background (constraints for you - do NOT include in output)
+     - \`contextFiles.cue\`: Concrete CUE sources to reconcile during planning, when present
      - \`rules\`: Artifact-specific rules (constraints for you - do NOT include in output)
      - \`template\`: The structure to use for your output file
      - \`instruction\`: Schema-specific guidance
@@ -102,14 +108,19 @@ The artifact types and their purpose depend on the schema. Use the \`instruction
 
 Common artifact patterns:
 
-**spec-driven schema** (proposal → specs → design → tasks):
+**spec-driven schema** (${SPEC_DRIVEN_ARTIFACT_FLOW}):
 - **proposal.md**: Ask user about the change if not clear. Fill in Why, What Changes, Capabilities, Impact.
   - The Capabilities section is critical - each capability listed will need a spec file.
 - **specs/<capability>/spec.md**: Create one spec per capability listed in the proposal's Capabilities section (use the capability name, not the change name).
 - **design.md**: Document technical decisions, architecture, and implementation approach.
 - **tasks.md**: Break down implementation into checkboxed tasks.
+- **summary.md**: Dense, bullet-only outline of the completed plan. It is the final required planning artifact.
 
 For other schemas, follow the \`instruction\` field from the CLI output.
+
+${CUE_PLANNING_RECONCILIATION_GUIDANCE}
+
+${DENSE_SUMMARY_GUIDANCE}
 
 **Guardrails**
 - Create ONE artifact per invocation
@@ -185,6 +196,7 @@ ${STORE_SELECTION_GUIDANCE}
      \`\`\`
    - Parse the JSON. The key fields are:
      - \`context\`: Project background (constraints for you - do NOT include in output)
+     - \`contextFiles.cue\`: Concrete CUE sources to reconcile during planning, when present
      - \`rules\`: Artifact-specific rules (constraints for you - do NOT include in output)
      - \`template\`: The structure to use for your output file
      - \`instruction\`: Schema-specific guidance
@@ -224,14 +236,19 @@ The artifact types and their purpose depend on the schema. Use the \`instruction
 
 Common artifact patterns:
 
-**spec-driven schema** (proposal → specs → design → tasks):
+**spec-driven schema** (${SPEC_DRIVEN_ARTIFACT_FLOW}):
 - **proposal.md**: Ask user about the change if not clear. Fill in Why, What Changes, Capabilities, Impact.
   - The Capabilities section is critical - each capability listed will need a spec file.
 - **specs/<capability>/spec.md**: Create one spec per capability listed in the proposal's Capabilities section (use the capability name, not the change name).
 - **design.md**: Document technical decisions, architecture, and implementation approach.
 - **tasks.md**: Break down implementation into checkboxed tasks.
+- **summary.md**: Dense, bullet-only outline of the completed plan. It is the final required planning artifact.
 
 For other schemas, follow the \`instruction\` field from the CLI output.
+
+${CUE_PLANNING_RECONCILIATION_GUIDANCE}
+
+${DENSE_SUMMARY_GUIDANCE}
 
 **Guardrails**
 - Create ONE artifact per invocation

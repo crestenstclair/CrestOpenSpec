@@ -132,6 +132,7 @@ describe('CUE architecture loading', () => {
     expect(context).toContain('primary architecture input to planning');
     expect(context).toContain('adapter.Stripe` --implements--> `port.Checkout.Payment');
     expect(context).toContain('Owns checkout');
-    expect(context).toContain('Do not create bookkeeping tasks for mirroring CUE elsewhere');
+    expect(context).toContain('update the listed CUE sources during planning');
+    expect(context).toContain('short, bullet-only outline');
   });
 });

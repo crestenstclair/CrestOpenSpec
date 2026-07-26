@@ -6,17 +6,23 @@
  */
 import type { SkillTemplate, CommandTemplate } from '../types.js';
 import { STORE_SELECTION_GUIDANCE } from './store-selection.js';
+import {
+  CUE_PLANNING_RECONCILIATION_GUIDANCE,
+  DENSE_SUMMARY_GUIDANCE,
+} from './planning-guidance.js';
 
 export function getOpsxProposeSkillTemplate(): SkillTemplate {
   return {
     name: 'openspec-propose',
-    description: 'Propose a new change with all artifacts generated in one step. Use when the user wants to quickly describe what they want to build and get a complete proposal with design, specs, and tasks ready for implementation.',
+    description: 'Propose a new change with all artifacts generated in one step. Use when the user wants to quickly describe what they want to build and get a complete proposal with design, specs, tasks, and a dense summary ready for implementation.',
     instructions: `Propose a new change - create the change and generate all artifacts in one step.
 
 I'll create a change with artifacts:
 - proposal.md (what & why)
+- specs/*/spec.md (behavior and requirements)
 - design.md (how)
 - tasks.md (implementation steps)
+- summary.md (dense plan outline)
 
 When ready to implement, run /opsx:apply
 
@@ -48,7 +54,7 @@ ${STORE_SELECTION_GUIDANCE}
    openspec status --change "<name>" --json
    \`\`\`
    Parse the JSON to get:
-   - \`applyRequires\`: array of artifact IDs needed before implementation (e.g., \`["tasks"]\`)
+   - \`applyRequires\`: array of artifact IDs needed before implementation (e.g., \`["tasks", "summary"]\`)
    - \`artifacts\`: list of all artifacts with their status and dependencies
    - \`planningHome\`, \`changeRoot\`, \`artifactPaths\`, and \`actionContext\`: path and scope context. Use these instead of assuming repo-local paths.
 
@@ -65,6 +71,7 @@ ${STORE_SELECTION_GUIDANCE}
         \`\`\`
       - The instructions JSON includes:
         - \`context\`: Project background (constraints for you - do NOT include in output)
+        - \`contextFiles.cue\`: Concrete CUE sources to reconcile during planning, when present
         - \`rules\`: Artifact-specific rules (constraints for you - do NOT include in output)
         - \`template\`: The structure to use for your output file
         - \`instruction\`: Schema-specific guidance for this artifact type
@@ -107,6 +114,10 @@ After completing all artifacts, summarize:
   - Do NOT copy \`<context>\`, \`<rules>\`, \`<project_context>\` blocks into the artifact
   - These guide what you write, but should never appear in the output
 
+${CUE_PLANNING_RECONCILIATION_GUIDANCE}
+
+${DENSE_SUMMARY_GUIDANCE}
+
 **Guardrails**
 - Create ALL artifacts needed for implementation (as defined by schema's \`apply.requires\`)
 - Always read dependency artifacts before creating a new one - re-read from disk, not from conversation memory (files may have changed since you last saw them)
@@ -129,8 +140,10 @@ export function getOpsxProposeCommandTemplate(): CommandTemplate {
 
 I'll create a change with artifacts:
 - proposal.md (what & why)
+- specs/*/spec.md (behavior and requirements)
 - design.md (how)
 - tasks.md (implementation steps)
+- summary.md (dense plan outline)
 
 When ready to implement, run /opsx:apply
 
@@ -162,7 +175,7 @@ ${STORE_SELECTION_GUIDANCE}
    openspec status --change "<name>" --json
    \`\`\`
    Parse the JSON to get:
-   - \`applyRequires\`: array of artifact IDs needed before implementation (e.g., \`["tasks"]\`)
+   - \`applyRequires\`: array of artifact IDs needed before implementation (e.g., \`["tasks", "summary"]\`)
    - \`artifacts\`: list of all artifacts with their status and dependencies
    - \`planningHome\`, \`changeRoot\`, \`artifactPaths\`, and \`actionContext\`: path and scope context. Use these instead of assuming repo-local paths.
 
@@ -179,6 +192,7 @@ ${STORE_SELECTION_GUIDANCE}
         \`\`\`
       - The instructions JSON includes:
         - \`context\`: Project background (constraints for you - do NOT include in output)
+        - \`contextFiles.cue\`: Concrete CUE sources to reconcile during planning, when present
         - \`rules\`: Artifact-specific rules (constraints for you - do NOT include in output)
         - \`template\`: The structure to use for your output file
         - \`instruction\`: Schema-specific guidance for this artifact type
@@ -220,6 +234,10 @@ After completing all artifacts, summarize:
 - **IMPORTANT**: \`context\` and \`rules\` are constraints for YOU, not content for the file
   - Do NOT copy \`<context>\`, \`<rules>\`, \`<project_context>\` blocks into the artifact
   - These guide what you write, but should never appear in the output
+
+${CUE_PLANNING_RECONCILIATION_GUIDANCE}
+
+${DENSE_SUMMARY_GUIDANCE}
 
 **Guardrails**
 - Create ALL artifacts needed for implementation (as defined by schema's \`apply.requires\`)
