@@ -172,7 +172,10 @@ export class ArchiveCommand {
         }
         console.log(JSON.stringify({ archive: result, root: toRootOutput(root) }, null, 2));
       } catch (error) {
-        this.printJsonFailure(root, toArchiveDiagnostic(error));
+        this.printJsonFailure(
+          root,
+          toArchiveDiagnostic(error)
+        );
       }
       return;
     }
@@ -181,7 +184,10 @@ export class ArchiveCommand {
     await this.run(changeName, options, root, false);
   }
 
-  private printJsonFailure(root: ResolvedOpenSpecRoot | undefined, diagnostic: ArchiveDiagnostic): void {
+  private printJsonFailure(
+    root: ResolvedOpenSpecRoot | undefined,
+    diagnostic: ArchiveDiagnostic
+  ): void {
     console.log(
       JSON.stringify(
         {

@@ -12,7 +12,7 @@ The OpenSpec CLI (`openspec`) provides terminal commands for project setup, vali
 | **Working context** | `context` | Assemble the working set (root + referenced stores) |
 | **Personal worksets** | `workset create`, `workset list`, `workset open`, `workset remove` | Keep and open personal, local working views in your tool |
 | **Browsing** | `list`, `view`, `show` | Explore changes and specs |
-| **Validation** | `validate` | Check changes and specs for issues |
+| **Validation** | `validate`, `acceptance` | Check static OpenSpec material or run declared deterministic gates |
 | **Lifecycle** | `archive` | Finalize completed changes |
 | **Workflow** | `new change`, `status`, `instructions`, `templates`, `schemas` | Artifact-driven workflow support |
 | **Schemas** | `schema init`, `schema fork`, `schema validate`, `schema which` | Create and manage custom workflows |
@@ -47,6 +47,7 @@ These commands support `--json` output for programmatic use by AI agents and scr
 | `openspec list` | Browse changes/specs | `--json` for structured data |
 | `openspec show <item>` | Read content | `--json` for parsing |
 | `openspec validate` | Check for issues | `--all --json` for bulk validation |
+| `openspec acceptance` | Run explicit deterministic CUE/OpenSpec/validation gates | `--json` for one versioned evidence report |
 | `openspec status` | See artifact progress | `--json` for structured status |
 | `openspec instructions` | Get next steps | `--json` for agent instructions |
 | `openspec templates` | Find template paths | `--json` for path resolution |
@@ -568,6 +569,20 @@ Validating add-dark-mode...
 
 ## Lifecycle Commands
 
+### `openspec acceptance`
+
+Run deterministic acceptance for one change or the whole project/release.
+
+```bash
+openspec acceptance <change-name> [--json] [--store <id>]
+openspec acceptance --project [--json] [--store <id>]
+openspec acceptance --release [--json] [--store <id>]
+```
+
+`--release` aliases `--project`; those flags cannot be combined with a change name. The command evaluates CUE, strictly validates applicable current and future-merged OpenSpec material, resolves project checks plus applicable attached test and runtime-session validations, executes every declaration with bounded direct argument vectors, evaluates every assertion, verifies selector-bound nonzero test evidence, and supervises runtime milestones, interactions, teardown, parent exit, and owned descendants. It exits nonzero on any mandatory failure or required host-capability gap.
+
+The command is transient and does not write a status ledger. It proves declared deterministic gates only—not semantic implementation conformance or undeclared environment fidelity. Normal reads and archive never start runtime sessions. See [Acceptance Gates](acceptance.md) for the CUE schema, report contract, providers, lifecycle/interaction evidence, security limits, and agent-review layer.
+
 ### `openspec archive`
 
 Archive a completed change and merge delta specs into main specs.
@@ -589,6 +604,7 @@ openspec archive [change-name] [options]
 | `-y, --yes` | Skip confirmation prompts |
 | `--skip-specs` | Skip spec updates (for infrastructure/tooling/doc-only changes) |
 | `--no-validate` | Skip validation (requires confirmation) |
+| `--json` | Emit one non-interactive JSON result, including acceptance evidence when available |
 
 **Examples:**
 
@@ -611,7 +627,9 @@ openspec archive update-ci-config --skip-specs
 1. Validates the change (unless `--no-validate`)
 2. Prompts for confirmation (unless `--yes`)
 3. Merges delta specs into `openspec/specs/`
-4. Moves change folder to `openspec/changes/archive/YYYY-MM-DD-<name>/`
+4. Moves the change folder to `openspec/changes/archive/YYYY-MM-DD-<name>/`
+
+Implementation acceptance runs at the end of `/opsx:apply`, or on demand through `/opsx:verify` or `openspec acceptance`. Archive does not repeat that work: its flags retain their documented validation, confirmation, and spec-update meanings.
 
 ---
 

@@ -95,30 +95,29 @@ If any of the three questions came back wrong, say so. There are no phases and n
 
 Then re-read the part you changed. Re-draft until it's a plan you'd sign your name to. That back-and-forth *is* the product working.
 
-## After the code: verify
+## After the code: execution acceptance
 
-Once the work is built, `/opsx:verify` is your second review. It re-reads the artifacts and the code and reports mismatches across three dimensions:
+Once the work is built, the end of `/opsx:apply` reads evaluated CUE and combines two evidence layers. `/opsx:verify` reruns the same contract only when you deliberately want another review:
 
-| Dimension | What it checks |
-|-----------|----------------|
-| **Completeness** | Every task done, every requirement implemented, scenarios covered |
-| **Correctness** | The implementation matches the spec's intent, edge cases handled |
-| **Coherence** | Design decisions actually show up in the code |
+| Layer | What it checks |
+|-------|----------------|
+| **Adversarial semantic review** | Applicable current/evergreen obligations, production composition and behavior, runtime-boundary/lifecycle/interleaving completeness, honest proof roles, required witnesses, and deferred scope |
+| **Deterministic acceptance** | CUE evaluation, strict current and future-merged OpenSpec validation, every declared project check and applicable attached test/runtime session, assertions, selector-bound nonzero test evidence, and supervised teardown |
 
 ```
-You: /opsx:verify
+You: /opsx:apply
 
 AI:  Verifying add-dark-mode...
 
-     COMPLETENESS
-     ✓ All 8 tasks in tasks.md are checked
-     ✓ All requirements in specs have corresponding code
-     ⚠ Scenario "Respects the OS preference on first load" has no test coverage
+     Semantic review: pass
+     Deferred preference migration: not applicable to this slice
+     Deterministic gates: pass (2/2 validations executed)
+     Execution acceptance passed — ready for your review
 ```
 
-It flags issues as CRITICAL, WARNING, or SUGGESTION, and it does **not** block archiving — it surfaces the gaps and leaves the call to you. This is the difference between "did the AI write code" and "did it build what we agreed."
+Applicable contradictions and required proof gaps—including an unavailable physical/native capability—keep execute/apply incomplete; deferred roadmap absence does not. Every blocker must cite authority, applicability, production evidence, a falsifiable contradiction or exact proof gap, the exact controlled proof command and production-seam witness, and the observed result. A success marker without bounded exit/cleanup is not completion, and keyword suspicion alone is not a violation. See [Acceptance Gates](acceptance.md) for the full contract.
 
-`/opsx:verify` is in the expanded profile. If you don't have it, turn it on with `openspec config profile` (then `openspec update`), or just re-read the change and the diff yourself.
+`/opsx:verify` is an optional expanded-profile command for a fresh review after execute/apply. If you don't have it, the normal end-of-apply acceptance still runs.
 
 ## Right-size the review
 

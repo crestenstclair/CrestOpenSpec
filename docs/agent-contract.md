@@ -27,7 +27,7 @@ Diagnostics appear in two positions: **status arrays** (`status: StoreDiagnostic
 
 ## 3. Root selection and `RootOutput`
 
-All root-resolving commands (`list`, `show`, `validate`, `status`, `instructions`, `instructions apply`, `new change`, `archive`, `doctor`, `context`) resolve one OpenSpec root with one precedence:
+All root-resolving commands (`list`, `show`, `validate`, `acceptance`, `status`, `instructions`, `instructions apply`, `new change`, `archive`, `doctor`, `context`) resolve one OpenSpec root with one precedence:
 
 1. `--store <id>` → the registered store's root (`source: "store"`).
 2. Otherwise, nearest ancestor with `openspec/`: planning shape → `source: "nearest"` (a `store:` pointer is ignored with a stderr warning); config-only dir with a valid `store:` pointer → that store, `source: "declared"`.
@@ -69,18 +69,44 @@ Change: `{ "id", "title", "deltaCount", "deltas": [...], "root" }`. Spec: `{ "id
 Success: `{ "change": { "id", "path", "metadataPath", "schema" }, "root" }`. Failure: `{ "change": null, "status": [d] }`, exit 1.
 
 ### 4.8 `archive <name> --json`
-Success: `{ "archive": { "change", "archivedAs": "YYYY-MM-DD-name", "path", "specsUpdated", "totals"? }, "root" }`. Failure: `{ "archive": null, "root"?, "status": [d] }`, exit 1. JSON mode is strictly non-interactive: every prompt point becomes an `archive_*` code.
+Success: `{ "archive": { "change", "archivedAs": "YYYY-MM-DD-name", "path", "specsUpdated", "totals"? }, "root" }`. Failure: `{ "archive": null, "root"?, "status": [d] }`, exit 1. JSON mode is strictly non-interactive: every prompt point becomes an `archive_*` code. Archive does not run implementation acceptance; end-of-execute apply or explicit verify owns that evidence.
 
-### 4.9 `doctor --json`
+### 4.9 `acceptance <name> --json` / `acceptance --project --json`
+
+`AcceptanceReport` is one complete document:
+
+```json
+{
+  "version": "2.0",
+  "scope": { "mode": "change" | "project", "change": "optional" },
+  "root": { "path": "/canonical/root", "source": "nearest", "store_id": "optional" } | null,
+  "applicable": true,
+  "passed": false,
+  "gates": {
+    "architecture": { "status": "passed" | "failed" | "not_applicable", "files": [], "diagnostics": [] },
+    "openspec": { "status": "passed" | "failed" | "not_applicable", "items": [], "diagnostics": [] },
+    "validations": { "status": "passed" | "failed" | "not_applicable", "declaredProjectChecks": 1, "applicableAttachedTests": 1, "applicableAttachedRuntimeSessions": 1, "resolved": 3, "executed": 3, "diagnostics": [] }
+  },
+  "checks": [],
+  "diagnostics": [],
+  "semanticReview": { "status": "not_evaluated", "message": "..." }
+}
+```
+
+Each check includes its validation ID, declaration `{kind, location, owner}`, normalized applicability, proof `{type, provider, role?}`, exact argv, canonical cwd, limits, process result, and every assertion result. A test-suite check includes the declared provider, minimum, and selector even if evidence extraction fails; returned evidence keeps its observed provider and selector separately so mismatches remain visible.
+
+A runtime-session check additionally includes its exact entry point, proof role, boundary, environment, lifecycle, success/termination/resource declarations, stdio mode, six timeout budgets, marker observations and occurrence times, session-bound interactions, parent/group/descendant identities, teardown state, cleanup actions, timeout stage, and bounded diagnostics. `success_reported_but_process_resident`, interaction timing/session mismatches, unavailable required capabilities (`BLOCKING_REQUIRED_PROOF_GAP`), and cleanup failures remain stable structured diagnostics. Bounded stdout/stderr are included; inherited environment keys and values are never serialized. A failed report exits 1 but remains the complete stdout document; usage/root/internal failures use the same report shape. See [Acceptance Gates](acceptance.md).
+
+### 4.10 `doctor --json`
 `{ "root": { "path", "source", "store_id"?, "healthy", "status": [] }, "store": { "id", "metadata": {present,valid,remote?}, "origin_url"?, "drift"?: {ahead,behind}, "status": [] } | null, "references": [...], "status": [] }`. `drift` (present only for a git-backed store checkout that has an upstream tracking ref) is ahead/behind counts against the last-fetched upstream, not the live remote. Health findings of any severity exit 0. Failure payload: `{ "root": null, "store": null, "references": [], "status": [d] }`, exit 1.
 
-### 4.10 `context --json`
+### 4.11 `context --json`
 `{ "root": { "path", "source", "store_id"?, "role": "openspec_root" }, "members": [ { "role": "referenced_store", "id", "path"?, "remote"?, "fetch"?, "status": [] } ], "status": [] }`. AVAILABLE = path present AND status empty. `--code-workspace <path>` writes `{folders:[{name,path}]}` (available referenced stores only, `ref:` prefixes); in JSON mode the write runs before printing so stdout holds exactly one document even on write failure. Failure: `{ "root": null, "members": [], "status": [d] }`, exit 1.
 
-### 4.11 `store ... --json`
+### 4.12 `store ... --json`
 setup/register: `{ "store": {id, root, metadata_path?}, "registry": {path, registered, already_registered}, "git": {is_repository, initialized, committed}, "created_files": [], "status": [] }`. unregister/remove: `{ "store", "registry": {path, removed}, "files": {deleted, deleted_path, left_on_disk}, "status": [] }`. list: `{ "stores": [{id, root}], "status": [] }`. doctor: `{ "stores": [ { id, root, metadata_path?, openspec_root: {...healthy, status}, metadata: {present, valid, id?, remote}, git: {is_repository, has_commits, has_uncommitted_changes, has_remote, origin_url}, status } ], "status": [] }` (`null` = unknown/not probed). Health findings exit 0; failures exit 1 with the matching null-shape. Prompt cancellation exits 130.
 
-### 4.12 `schemas --json` / `templates --json`
+### 4.13 `schemas --json` / `templates --json`
 `schemas`: bare array `[ {name, description, artifacts, source} ]`. `templates`: keyed object `{ "<artifactId>": {path, source} }`. Both cwd-based, no root/status keys.
 
 ## 5. Exit-code contract
@@ -90,6 +116,7 @@ setup/register: `{ "store": {id, root, metadata_path?}, "registry": {path, regis
 | Success, incl. health findings (doctor/context/store doctor) | 0 | the payload |
 | Command failure in `--json` mode | 1 | one JSON document with `status: [d]` and the command's null-shape |
 | `validate` with failing items | 1 | full report |
+| `acceptance` with any failed mandatory gate | 1 | full versioned acceptance report |
 | Prompt cancellation (`store` group, human mode) | 130 | stderr only |
 
 ## 6. Diagnostic code catalog
@@ -118,6 +145,10 @@ setup/register: `{ "store": {id, root, metadata_path?}, "registry": {path, regis
 ### Archive (JSON mode)
 `archive_change_name_required`, `archive_change_not_found`, `archive_validation_failed`, `archive_confirmation_required`, `archive_tasks_incomplete`, `archive_spec_update_failed`, `archive_spec_validation_failed`, `archive_target_exists`, `archive_error`.
 
+### Acceptance
+
+Families include `acceptance_scope_*`, `acceptance_change_*`, `cue_architecture_evaluation_failed`, `validation_*`, `openspec_validation_*`, `assertion_*`, and `test_evidence_*`. The complete diagnostic remains in the report rather than being reduced to a status-only error.
+
 ### Context writes
 `context_file_exists`, `context_output_dir_missing`.
 
@@ -133,6 +164,6 @@ Recorded by the capstone audit; published-key renames are product decisions defe
 3. snake_case (store family) vs camelCase (workflow family) key casing; `root.store_id` is snake_case everywhere.
 4. Four parallel envelope type declarations exist in src; archive diagnostics never carry `target`.
 5. `list --json` reuses the `status` key as a string enum per change.
-6. Only `validate` output carries a `version` field.
+6. `validate` and `acceptance` carry versioned report fields; other workflow payloads do not.
 7. `schemas`/`templates` ignore root selection (cwd-based, no `--store`).
 8. Deprecated noun forms (`change`/`spec` subcommands) emit unenveloped payloads without `root`/`status`.

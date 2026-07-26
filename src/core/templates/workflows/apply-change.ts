@@ -5,6 +5,7 @@
  * templates file into workflow-focused modules.
  */
 import type { SkillTemplate, CommandTemplate } from '../types.js';
+import { EXECUTION_ACCEPTANCE_CONTRACT } from './acceptance-review.js';
 import { STORE_SELECTION_GUIDANCE } from './store-selection.js';
 
 export function getApplyChangeSkillTemplate(): SkillTemplate {
@@ -52,7 +53,7 @@ ${STORE_SELECTION_GUIDANCE}
 
    **Handle states:**
    - If \`state: "blocked"\` (missing artifacts): show message, suggest using openspec-continue-change
-   - If \`state: "all_done"\`: congratulate, suggest archive
+   - If \`state: "all_done"\`: skip task execution and proceed directly to end-of-execute acceptance
    - Otherwise: proceed to implementation
 
 4. **Read project context and context files**
@@ -86,13 +87,15 @@ ${STORE_SELECTION_GUIDANCE}
    - Error or blocker encountered → report and wait for guidance
    - User interrupts
 
-7. **On completion or pause, show status**
+7. **At the end of execute/apply, run acceptance**
 
-   Display:
-   - Tasks completed this session
-   - Overall progress: "N/M tasks complete"
-   - If all done: suggest archive
-   - If paused: explain why and wait for guidance
+   - If implementation paused or any task remains incomplete, show status and stop without claiming execution acceptance.
+   - Once every task is complete, apply the full end-of-execute acceptance contract below.
+   - Run semantic review and \`openspec acceptance "<name>" --json\` once here, after implementation and before reporting the execute phase complete.
+   - If either layer blocks, continue repairing in the execute phase when possible; otherwise report the exact blocker and leave execution incomplete.
+   - Only a passing semantic and deterministic result permits the execute/apply phase to be reported complete and handed to the user for review and archive approval.
+
+${EXECUTION_ACCEPTANCE_CONTRACT}
 
 **Output During Implementation**
 
@@ -116,13 +119,14 @@ Working on task 4/7: <task description>
 **Change:** <change-name>
 **Schema:** <schema-name>
 **Progress:** 7/7 tasks complete ✓
+**Execution acceptance:** passed ✓
 
 ### Completed This Session
 - [x] Task 1
 - [x] Task 2
 ...
 
-All tasks complete! Ready to archive this change.
+Implementation and end-of-execute acceptance are complete. Ready for user review and archive approval; archive will not rerun acceptance.
 \`\`\`
 
 **Output On Pause (Issue Encountered)**
@@ -152,6 +156,8 @@ What would you like to do?
 - If implementation reveals issues, pause and suggest artifact updates
 - Keep code changes minimal and scoped to each task
 - Update task checkbox immediately after completing each task
+- Run the full acceptance contract only when every task is complete, including when apply begins in \`all_done\` state
+- Do not report implementation complete or suggest archive while end-of-execute acceptance is blocked
 - Pause on errors, blockers, or unclear requirements - don't guess
 - Use contextFiles from CLI output, don't assume specific file names
 
@@ -214,7 +220,7 @@ ${STORE_SELECTION_GUIDANCE}
 
    **Handle states:**
    - If \`state: "blocked"\` (missing artifacts): show message, suggest using \`/opsx:continue\`
-   - If \`state: "all_done"\`: congratulate, suggest archive
+   - If \`state: "all_done"\`: skip task execution and proceed directly to end-of-execute acceptance
    - Otherwise: proceed to implementation
 
 4. **Read project context and context files**
@@ -248,13 +254,15 @@ ${STORE_SELECTION_GUIDANCE}
    - Error or blocker encountered → report and wait for guidance
    - User interrupts
 
-7. **On completion or pause, show status**
+7. **At the end of execute/apply, run acceptance**
 
-   Display:
-   - Tasks completed this session
-   - Overall progress: "N/M tasks complete"
-   - If all done: suggest archive
-   - If paused: explain why and wait for guidance
+   - If implementation paused or any task remains incomplete, show status and stop without claiming execution acceptance.
+   - Once every task is complete, apply the full end-of-execute acceptance contract below.
+   - Run semantic review and \`openspec acceptance "<name>" --json\` once here, after implementation and before reporting the execute phase complete.
+   - If either layer blocks, continue repairing in the execute phase when possible; otherwise report the exact blocker and leave execution incomplete.
+   - Only a passing semantic and deterministic result permits the execute/apply phase to be reported complete and handed to the user for review and archive approval.
+
+${EXECUTION_ACCEPTANCE_CONTRACT}
 
 **Output During Implementation**
 
@@ -278,13 +286,14 @@ Working on task 4/7: <task description>
 **Change:** <change-name>
 **Schema:** <schema-name>
 **Progress:** 7/7 tasks complete ✓
+**Execution acceptance:** passed ✓
 
 ### Completed This Session
 - [x] Task 1
 - [x] Task 2
 ...
 
-All tasks complete! You can archive this change with \`/opsx:archive\`.
+Implementation and end-of-execute acceptance are complete. Ready for user review and archive approval; archive will not rerun acceptance.
 \`\`\`
 
 **Output On Pause (Issue Encountered)**
@@ -314,6 +323,8 @@ What would you like to do?
 - If implementation reveals issues, pause and suggest artifact updates
 - Keep code changes minimal and scoped to each task
 - Update task checkbox immediately after completing each task
+- Run the full acceptance contract only when every task is complete, including when apply begins in \`all_done\` state
+- Do not report implementation complete or suggest archive while end-of-execute acceptance is blocked
 - Pause on errors, blockers, or unclear requirements - don't guess
 - Use contextFiles from CLI output, don't assume specific file names
 

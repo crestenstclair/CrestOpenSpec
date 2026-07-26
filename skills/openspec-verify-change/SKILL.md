@@ -1,6 +1,6 @@
 ---
 name: openspec-verify-change
-description: Verify implementation matches change artifacts. Use when the user wants to validate that implementation is complete, correct, and coherent before archiving.
+description: Verify implementation matches evaluated architecture and current change obligations with semantic and deterministic acceptance layers.
 allowed-tools: Bash(openspec:*)
 license: MIT
 compatibility: Requires openspec CLI.
@@ -9,163 +9,115 @@ metadata:
   version: "1.0"
 ---
 
-Verify that an implementation matches the change artifacts (specs, tasks, design).
+Explicitly re-verify that an implementation satisfies its evaluated architecture and current OpenSpec change.
 
-**Store selection:** If the user names a store (a store is a standalone OpenSpec repo registered on this machine) or the work lives in one, run `openspec store list --json` to discover registered store ids, then pass `--store <id>` on the commands that read or write specs and changes (`new change`, `status`, `instructions`, `list`, `show`, `validate`, `archive`, `doctor`, `context`). Other commands do not take the flag. Hints printed by commands already carry the flag; keep it on follow-ups. Without a store, commands act on the nearest local `openspec/` root.
+**Store selection:** If the user names a store (a store is a standalone OpenSpec repo registered on this machine) or the work lives in one, run `openspec store list --json` to discover registered store ids, then pass `--store <id>` on the commands that read or write specs and changes (`new change`, `status`, `instructions`, `list`, `show`, `validate`, `acceptance`, `archive`, `doctor`, `context`). Other commands do not take the flag. Hints printed by commands already carry the flag; keep it on follow-ups. Without a store, commands act on the nearest local `openspec/` root.
 
-**Input**: Optionally specify a change name. If omitted, check if it can be inferred from conversation context. If vague or ambiguous you MUST prompt for available changes.
+**Input**: Optionally provide a change name. Infer only when the conversation identifies one unambiguously; otherwise prompt for selection.
 
-**Steps**
+**Workflow**
 
-1. **If no change name provided, prompt for selection**
+1. Resolve exactly one active change. If the name is missing or ambiguous, run `openspec list --json` with the selected store flag and ask the user to choose; never guess.
+2. Run `openspec status --change "<name>" --json` with the selected store flag. Use its planning root, change root, artifact paths, schema, and action context rather than assuming paths.
+3. Run `openspec instructions apply --change "<name>" --json` with the selected store flag. Read the returned evaluated `context` first, then every concrete path in `contextFiles`.
+4. Apply the shared adversarial acceptance review below to evaluated authority, artifacts, implementation, production composition, and witnesses.
+5. Return one report that keeps semantic findings, deterministic gates, deferred observations, and the final eligibility decision distinct.
 
-   Run `openspec list --json` to get available changes. Use the **AskUserQuestion tool** to let the user select.
+## End-of-execute adversarial acceptance
 
-   Show changes that have implementation tasks (tasks artifact exists).
-   Include the schema used for each change if available.
-   Mark changes with incomplete tasks as "(In Progress)".
+Treat semantic review and deterministic acceptance as separate, mandatory layers. The CLI proves only declared deterministic gates; it does not establish semantic implementation conformance.
 
-   **IMPORTANT**: Do NOT guess or auto-select a change. Always let the user choose.
+### 1. Establish authority and applicability
 
-2. **Check status to understand the schema**
-   ```bash
-   openspec status --change "<name>" --json
-   ```
-   Parse the JSON to understand:
-   - `schemaName`: The workflow being used (e.g., "spec-driven")
-   - `planningHome`, `changeRoot`, `artifactPaths`, and `actionContext`: path and scope context
-   - Which artifacts exist for this change
+Read the final evaluated CUE context before interpreting proposal, design, specs, tasks, implementation, or tests. Rebuild the obligation ledger and architecture-conformance matrix after the final implementation task from that evaluated CUE and the final implementation diff, even when apply began with every checkbox complete. Build an obligation ledger for every relevant architecture declaration, relationship, layer, boundary, resource, asset, validation, witness, requirement, and task. Classify each item exactly as:
 
-3. **Get planning context and load artifacts**
+- `CURRENT_SLICE`: required by this change now.
+- `EVERGREEN_INVARIANT`: required in every phase, including this change.
+- `DEFERRED_SCOPE`: authorized roadmap work that is not required now.
+- `UNAUTHORIZED_EARLY_SCOPE`: behavior implemented before its authorized phase and in conflict with current authority.
 
-   ```bash
-   openspec instructions apply --change "<name>" --json
-   ```
+Only an applicable current-slice or evergreen contradiction, unauthorized early scope, required proof gap, or failed deterministic gate may block. Missing deferred functionality is never a blocker; record it separately as `DEFERRED_NOT_APPLICABLE` or omit it. A future risk may be `INFORMATIONAL_FUTURE_RISK`, but it cannot reduce present acceptance.
 
-   This returns the change directory, `context`, and `contextFiles` (artifact ID -> array of concrete file paths). Read `context` first, then all available artifacts from `contextFiles`. If `context` contains a CUE architecture, verify against its resolved model and relationship constraints.
+### 2. Use evidence-complete findings
 
-4. **Initialize verification report structure**
+Classify semantic findings as `BLOCKING_CURRENT_VIOLATION`, `BLOCKING_EVERGREEN_VIOLATION`, `BLOCKING_REQUIRED_PROOF_GAP`, `DEFERRED_NOT_APPLICABLE`, or `INFORMATIONAL_FUTURE_RISK`. Report unauthorized early scope through the applicable current or evergreen blocking class; do not invent another finding class.
 
-   Create a report structure with three dimensions:
-   - **Completeness**: Track tasks and spec coverage
-   - **Correctness**: Track requirement implementation and scenario coverage
-   - **Coherence**: Track design adherence and pattern consistency
+Every blocker must include all of the following:
 
-   Each dimension can have CRITICAL, WARNING, or SUGGESTION issues.
+1. the exact evaluated-CUE or current OpenSpec authority citation;
+2. applicability classification and rationale;
+3. production implementation evidence with concrete paths or runtime trace;
+4. a falsifiable contradiction or precisely missing required proof;
+5. the exact controlled proof command and the production-seam witness it exercises (if execution cannot complete, report the attempted command and preserve the gap as blocking evidence);
+6. the observed result, not an expected or inferred result;
+7. severity and a scoped repair direction.
 
-5. **Verify Completeness**
+Keyword searches, name similarity, architectural suspicion, a success string, missing future functionality, or lack of investigation are not proof. Do not turn uncertainty into a blocker. Prefer production execution and controlled negative witnesses over mocks that bypass the production seam or tests that only construct a component.
 
-   **Task Completion**:
-   - If `contextFiles.tasks` exists, read every file path in it
-   - Parse checkboxes: `- [ ]` (incomplete) vs `- [x]` (complete)
-   - Count complete vs total tasks
-   - If incomplete tasks exist:
-     - Add CRITICAL issue for each incomplete task
-     - Recommendation: "Complete task: <description>" or "Mark as done if already implemented"
+### 3. Build the architecture-conformance matrix
 
-   **Spec Coverage**:
-   - If delta specs exist in `contextFiles.specs`:
-     - Extract all requirements (marked with "### Requirement:")
-     - For each requirement:
-       - Search codebase for keywords related to the requirement
-       - Assess if implementation likely exists
-     - If requirements appear unimplemented:
-       - Add CRITICAL issue: "Requirement not found: <requirement name>"
-       - Recommendation: "Implement requirement X: <description>"
+For every `CURRENT_SLICE` obligation and `EVERGREEN_INVARIANT`, map the evaluated declaration to its production composition, runtime behavior, and behavioral witness. Include every applicable port, layer, composition decision, prepared-runtime constraint, failure channel, and validation declaration. Local component correctness is insufficient when production composition drops, bypasses, overwrites, or makes the contract unreachable.
 
-6. **Verify Correctness**
+Apply every guard below:
 
-   **Requirement Implementation Mapping**:
-   - For each requirement from delta specs:
-     - Search codebase for implementation evidence
-     - If found, note file paths and line ranges
-     - Assess if implementation matches requirement intent
-     - If divergence detected:
-       - Add WARNING: "Implementation may diverge from spec: <details>"
-       - Recommendation: "Review <file>:<lines> against requirement X"
+#### composition-root-and-dependency-direction
 
-   **Scenario Coverage**:
-   - For each scenario in delta specs (marked with "#### Scenario:"):
-     - Check if conditions are handled in code
-     - Check if tests exist covering the scenario
-     - If scenario appears uncovered:
-       - Add WARNING: "Scenario not covered: <scenario name>"
-       - Recommendation: "Add test or implementation for scenario: <description>"
+For each declared port or injected dependency, identify the architecture owner that selects and constructs the concrete implementation, the production composition site that supplies it, the application service that consumes it, and the resulting production dependency direction. Verify that production uses the supplied dependency and does not construct, import, or select an adapter internally when the evaluated architecture assigns that choice to a composition root. Verify that the port is not declaration-only or test-only while production bypasses it. This is conditional on the applicable architecture; do not invent a blanket dependency-injection rule.
 
-7. **Verify Coherence**
+Require a production-composition witness that substitutes or deliberately mismatches the dependency at the declared port and observes the specified typed acceptance or rejection. A concrete-adapter unit test is not sufficient.
 
-   **Design Adherence**:
-   - If `contextFiles.design` exists:
-     - Extract key decisions (look for sections like "Decision:", "Approach:", "Architecture:")
-     - Verify implementation follows those decisions
-     - If contradiction detected:
-       - Add WARNING: "Design decision not followed: <decision>"
-       - Recommendation: "Update implementation or revise design.md to match reality"
-   - If no design.md: Skip design adherence check, note "No design.md to verify against"
+#### negotiation-before-preparation
 
-   **Code Pattern Consistency**:
-   - Review new code for consistency with project patterns
-   - Check file naming, directory structure, coding style
-   - If significant deviations found:
-     - Add SUGGESTION: "Code pattern deviation: <details>"
-     - Recommendation: "Consider following project pattern: <example>"
+For every artifact whose validity depends on a runtime-selected value, trace the exact order: negotiate or discover -> validate -> prepare a complete compatible artifact -> start runtime processing -> check later runtime values against the prepared contract. Cover a supported non-default negotiated value and relevant capacity boundaries. Block defaults or requested values used before negotiation, ignored actual values, incompatible preparation, silent truncation, silent padding, or degraded fallback. Unsupported configurations must fail visibly before processing starts.
 
-8. **Generate Verification Report**
+#### asynchronous-runtime-failure
 
-   **Summary Scorecard**:
-   ```markdown
-   ## Verification Report: <change-name>
+Trace startup failures and post-start failures from callbacks, futures, event streams, worker completions, device notifications, and background tasks into the declared bounded status, error transport, state transition, recovery, or user-visible boundary. Block an ignored callback argument, empty error handler, detached failed task, caught-and-discarded exception, unconditional success conversion, or silent output. Require a controlled negative witness that injects failure after successful startup and proves the exact production observation or recovery behavior.
 
-   ### Summary
-   | Dimension    | Status           |
-   |--------------|------------------|
-   | Completeness | X/Y tasks, N reqs|
-   | Correctness  | M/N reqs covered |
-   | Coherence    | Followed/Issues  |
-   ```
+#### end-to-end-failure-observability
 
-   **Issues by Priority**:
+Trace every contractually observable typed status or error through every production caller. Block discarded results, unused booleans, caught-but-unrecorded failures, or substitution of ordinary success. Enter through the production composition seam and independently prove both (a) no forbidden mutation, routing, or fallback and (b) the required error, status, state, or counter observation. Either assertion alone is incomplete; a direct component test does not cover a production caller that erases the result.
 
-   1. **CRITICAL** (Must fix before archive):
-      - Incomplete tasks
-      - Missing requirement implementations
-      - Each with specific, actionable recommendation
+#### validation-declaration-integrity
 
-   2. **WARNING** (Should fix):
-      - Spec/design divergences
-      - Missing scenario coverage
-      - Each with specific recommendation
+Build the inventory from `completion.projectChecks` plus test-suite and runtime-session proofs attached to every applicable CUE resource, relationship, capability, invariant, witness, or acceptance asset. Record exact validation identity, declaration location, owner, argument vector, canonical working directory, proof type and role, provider, opaque selector, applicability, boundary, environment, lifecycle, timeout budgets, interaction requirements, and execution provenance. Every applicable declaration is independently binding. A broad suite cannot rehabilitate a targeted validation that selects zero tests, and evidence for a broad or different selector cannot satisfy the targeted declaration. Missing applicability metadata, orphaned evidence references, duplicated identities, ambiguous ownership, and unsupported providers fail closed according to the evaluated schema.
 
-   3. **SUGGESTION** (Nice to fix):
-      - Pattern inconsistencies
-      - Minor improvements
-      - Each with specific recommendation
+#### runtime-boundary-completeness
 
-   **Final Assessment**:
-   - If CRITICAL issues: "X critical issue(s) found. Fix before archiving."
-   - If only warnings: "No critical issues. Y warning(s) to consider. Ready for archive (with noted improvements)."
-   - If all clear: "All checks passed. Ready for archive."
+For every `CURRENT_SLICE` or `EVERGREEN_INVARIANT` claim involving a user-facing command, external process, native UI, physical device, network service, background worker, daemon, callback-driven runtime, or another owned runtime resource, identify the exact production entry point; classify it as `bounded`, `interactive-persistent`, `service-persistent`, or `background-owned`; name the authoritative success condition and termination owner; enumerate every process, child, window, stream, worker, task, device, socket, and other resource to release or deliberately retain; and map the claim to an applicable executable witness at the same boundary and environment fidelity.
 
-**Verification Heuristics**
+An in-process fake, mock, null device, dry run, command listing, compilation check, or construction-only test remains useful lower-level evidence but cannot satisfy an explicit external-process, native-window, physical-device, production-composition, or real-service lifecycle claim. If the applicable runtime claim has no matching declared proof, report `BLOCKING_REQUIRED_PROOF_GAP`; do not infer coverage from a broad suite.
 
-- **Completeness**: Focus on objective checklist items (checkboxes, requirements list)
-- **Correctness**: Use keyword search, file path analysis, reasonable inference - don't require perfect certainty
-- **Coherence**: Look for glaring inconsistencies, don't nitpick style
-- **False Positives**: When uncertain, prefer SUGGESTION over WARNING, WARNING over CRITICAL
-- **Actionability**: Every issue must have a specific recommendation with file/line references where applicable
+#### terminal-success-coherence
 
-**Graceful Degradation**
+Treat a success marker, completed report, ready state, or callback as an intermediate observation unless the declared lifecycle says otherwise. For a bounded runtime require the full sequence `start -> observable progress -> exact declared success -> normal teardown -> parent exit -> no owned descendants or resources remain`. Block a success marker followed by residency beyond the completion-to-exit grace, parent exit with an owned descendant, missing/duplicate/out-of-order markers, exit zero before success, undeclared user input required for teardown, timeout cleanup after claimed success, or indefinite silence after the final event.
 
-- If only tasks.md exists: verify task completion only, skip spec/design checks
-- If tasks + specs exist: verify completeness and correctness, skip design
-- If full artifacts: verify all three dimensions
-- Always note which checks were skipped and why
+A persistent application or service must declare its persistent lifecycle, bounded controller-owned teardown protocol, and teardown proof. Readiness cannot masquerade as bounded completion or leave apply waiting forever. Confirm each runtime proof was monitored through teardown and that cleanup targeted only its owned process tree.
 
-**Output Format**
+#### critical-interleaving-completeness
 
-Use clear markdown with:
-- Table for summary scorecard
-- Grouped lists for issues (CRITICAL/WARNING/SUGGESTION)
-- Code references in format: `file.ts:123`
-- Specific, actionable recommendations
-- No vague suggestions like "consider reviewing"
+For each applicable runtime path, enumerate independent producers that can act on the same state, transport, resource, snapshot, queue, generation, transaction, or lifecycle, including user input versus automation, callbacks versus control logic, retries versus latest-wins state, workers versus shutdown, and device errors versus success reporting. Use authority and a concrete producer/shared-boundary trace; never invent a race from keywords.
+
+For each material window, name its opening and closing milestones, inject the competing action between them through the production composition seam, prove delivery to that seam, assert the required state/projection/publication/log/generation/error/lifecycle effects, and prove the autonomous flow still reaches its exact terminal result or typed failure. Injection only before startup or after completion is not in-flight coverage. `no crash` or `no forbidden mutation` is insufficient when the contract also requires a visible error, ignored-input record, retry, cancellation, or successful continuation.
+
+#### declaration-honesty
+
+Keep these meanings explicit and distinct in declarations and reports: target/command reachability, static/configuration validation, in-process behavioral test, external-process lifecycle, production-composition runtime, synthetic environment, physical/native environment, and controlled interaction. `make -n`, `--help`, command enumeration, and equivalent dry runs prove reachability only. They never prove runtime behavior or lifecycle.
+
+When specifications and tests encode a persistent lifecycle for an autonomous command that is also used as a finite completion witness, report the semantic contradiction and require the authoritative artifacts to resolve the lifecycle. Self-consistency among prose, mocks, and implementation does not resolve conflicting proof roles.
+
+Do not add AST assumptions, framework names, method spellings, runner-name guesses, or ecosystem heuristics to deterministic acceptance. A project that wants machine-enforced semantic or source analysis must declare an executable validation or explicit provider. Unsupported inference is never a deterministic pass.
+
+### 4. Run deterministic acceptance
+
+Run strict change validation after the final implementation edit with `openspec validate "<name>" --strict --json`, then run `openspec acceptance "<name>" --json` with the selected store flag, if any; acceptance also validates the future merged specifications and executes every applicable runtime session. An earlier validation pass is not a substitute. Preserve the complete acceptance result as the deterministic layer. A command exit of zero is not enough for a test-bearing validation: its declared provider must return trustworthy, selector-matched evidence with a nonzero executed count and satisfy its own assertions. A runtime success marker is not enough: the declared provider must prove lifecycle, marker, interaction, teardown, parent-exit, and descendant requirements. Do not reuse evidence between different invocations, selectors, or sessions.
+
+An unavailable physical/native capability or interaction provider for an applicable proof is `BLOCKING_REQUIRED_PROOF_GAP`, never a pass or implicit skip. Repair and rerun when possible. Archive is not a fallback for incomplete execution.
+
+### 5. Decide and report
+
+Report the obligation ledger, architecture-conformance matrix, evidence-complete semantic findings, deterministic acceptance result, and final execution status separately. Put deferred and informational observations in a non-blocking section. Never report the execute/apply phase complete while any applicable semantic blocker or deterministic gate fails. Repair the implementation or its authoritative artifacts and rerun execute/apply or explicit verify; later archive approval does not rerun or override this work.
+
+**Output**
+
+Include a compact scorecard for obligation coverage and deterministic gates, followed by the architecture-conformance matrix and evidence-complete findings. Cite concrete files, traces, commands, and observed results. If there are no blockers, say `execution acceptance passed; ready for user review`; otherwise state the exact blocking classes and repairs. Never soften a blocker into a warning, and never promote a deferred observation into a blocker.

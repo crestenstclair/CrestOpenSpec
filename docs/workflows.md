@@ -88,7 +88,8 @@ openspec update
 When you know what you want to build and just need to execute:
 
 ```text
-/opsx:new ──► /opsx:ff ──► /opsx:apply ──► /opsx:verify ──► /opsx:archive
+/opsx:new ──► /opsx:ff ──► /opsx:apply + end-of-execute acceptance ──► user review ──► /opsx:archive
+                                      └── optional explicit /opsx:verify
 ```
 
 **Example conversation:**
@@ -114,7 +115,8 @@ AI:  Working through tasks...
      ✓ Added logout button to header
      ✓ Implemented session clearing
      ✓ Added confirmation dialog
-     All tasks complete!
+     ✓ End-of-execute semantic and deterministic acceptance
+     Implementation complete — ready for your review
 
 You: /opsx:archive
 
@@ -203,7 +205,8 @@ You: /opsx:apply
 
 AI:  Working on fix-login-redirect...
      [Implements the fix]
-     All tasks complete!
+     ✓ End-of-execute acceptance
+     Implementation complete — ready for your review
 
 You: /opsx:archive
 
@@ -224,84 +227,61 @@ When you have multiple completed changes, use `/opsx:bulk-archive`:
 ```text
 You: /opsx:bulk-archive
 
-AI:  Found 3 completed changes:
-     - add-dark-mode (all tasks done)
-     - fix-login-redirect (all tasks done)
-     - update-footer (all tasks done)
+AI:  Change               Tasks   Spec overlap
+     add-dark-mode        7/7     specs/ui
+     fix-login-redirect   4/4     none
+     update-footer        3/3     specs/ui
 
-     Checking for spec conflicts...
-     ⚠ add-dark-mode and update-footer both touch specs/ui/
-
-     Inspecting codebase to resolve...
-     Both changes are implemented. Will apply in chronological order.
-
-     Archive all 3 changes?
+     Which exact subset and ordering do you approve for archive?
 
 You: Yes
 
 AI:  ✓ Archived add-dark-mode
-     ✓ Archived fix-login-redirect
      ✓ Archived update-footer
-     Specs merged in order: add-dark-mode → update-footer
+     Not selected: fix-login-redirect
 ```
 
-Bulk archive detects when multiple changes touch the same specs and resolves conflicts by checking what's actually implemented.
+Bulk archive reports completion and spec overlap as coordination context, then delegates each approved mutation to core archive. It does not repeat the acceptance already performed at the end of each execute/apply run.
 
 ### Completing a Change
 
 The recommended completion flow:
 
 ```text
-/opsx:apply ──► /opsx:verify ──► /opsx:archive
-                    │                 │
-              validates          prompts to sync
-              implementation     if needed
+/opsx:apply ──► end-of-execute acceptance ──► user review ──► /opsx:archive
+                         │                                      │
+                 semantic + deterministic                approve, update, move
+
+/opsx:verify = optional explicit rerun when another functional review is wanted
 ```
 
 #### Verify: Check Your Work
 
-`/opsx:verify` validates implementation against your artifacts across three dimensions:
+`/opsx:verify` reads evaluated CUE first and requires two distinct evidence layers:
 
 ```text
 You: /opsx:verify
 
-AI:  Verifying add-auth...
+AI:  Semantic review
+     ✓ Current and evergreen obligations conform in production
+     ✓ Architecture drift guards have controlled witnesses
+     Deferred: future federation support (not applicable)
 
-     COMPLETENESS
-     ✓ All 12 tasks in tasks.md are checked
-     ✓ All requirements in specs have corresponding code
-     ⚠ Scenario "Session timeout after inactivity" not tested
+     Deterministic acceptance
+     ✓ CUE and strict OpenSpec validation
+     ✓ 3/3 executable validations, including targeted tests
 
-     CORRECTNESS
-     ✓ Implementation matches spec intent
-     ✓ Edge cases from scenarios are handled
-     ✓ Error states match spec definitions
-
-     COHERENCE
-     ✓ Design decisions reflected in code structure
-     ✓ Naming conventions consistent with design.md
-     ⚠ Design mentions "event-driven" but implementation uses polling
-
-     SUMMARY
-     ─────────────────────────────
-     Critical issues: 0
-     Warnings: 2
-     Ready to archive: Yes (with warnings)
-
-     Recommendations:
-     1. Add test for session timeout scenario
-     2. Consider refactoring to event-driven as designed, or update design.md
+     Execution acceptance passed — ready for user review
 ```
 
 **What verify checks:**
 
-| Dimension | What it validates |
-|-----------|------------------|
-| Completeness | All tasks done, all requirements implemented, scenarios covered |
-| Correctness | Implementation matches spec intent, edge cases handled |
-| Coherence | Design decisions reflected in code, patterns consistent |
+| Layer | What it validates |
+|-------|-------------------|
+| Semantic | Current/evergreen architecture through production composition, runtime behavior, and witnesses |
+| Deterministic | CUE, strict OpenSpec material, declared invocations, assertions, selectors, and nonzero test execution |
 
-Verify won't block archive, but it surfaces issues you might want to address first.
+Applicable semantic blockers or deterministic failures keep execute/apply incomplete. Missing deferred functionality is explicitly non-blocking. The normal apply workflow runs this same contract automatically after its final task; verify is the deliberate rerun.
 
 #### Archive: Finalize the Change
 
@@ -310,26 +290,17 @@ Verify won't block archive, but it surfaces issues you might want to address fir
 ```text
 You: /opsx:archive
 
-AI:  Archiving add-auth...
-
-     Artifact status:
-     ✓ proposal.md exists
-     ✓ specs/ exists
-     ✓ design.md exists
-     ✓ tasks.md exists (12/12 tasks complete)
-
-     Delta specs: Not yet synced to main
-     → Would you like to sync now?
+AI:  Tasks complete: 7/7
+     Planned spec update: specs/auth/spec.md
+     → Archive this reviewed change?
 
 You: Yes
 
 AI:  ✓ Synced specs to openspec/specs/auth/spec.md
      ✓ Moved to openspec/changes/archive/2025-01-24-add-auth/
-
-     Change archived successfully.
 ```
 
-Archive will prompt if specs aren't synced. It won't block on incomplete tasks, but it will warn you.
+Archive does not rerun implementation acceptance. It is the user-approved record mutation after functionality has already been reviewed; `--yes`, `--skip-specs`, and `--no-validate` retain their ordinary archive meanings. See [Acceptance Gates](acceptance.md).
 
 ## When to Use What
 
@@ -425,9 +396,9 @@ AI:  Let me investigate your current setup and options...
 
 Exploration clarifies thinking before you create artifacts.
 
-### Verify Before Archiving
+### Optional Explicit Re-verification
 
-Use `/opsx:verify` to check implementation matches artifacts:
+End-of-execute `/opsx:apply` already checks implementation against authority. Use `/opsx:verify` only when you want to rerun that review explicitly:
 
 ```text
 You: /opsx:verify
@@ -438,10 +409,10 @@ AI:  Verifying add-dark-mode...
      ✓ Requirements in specs have corresponding code
      ✓ Design decisions are reflected in implementation
 
-     Ready to archive!
+     Execution acceptance passed — ready for user review
 ```
 
-Catches mismatches before you close out the change.
+Catches mismatches without turning archive itself into another implementation ceremony.
 
 ### Name Changes Clearly
 

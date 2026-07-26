@@ -23,6 +23,7 @@ import { registerStoreCommand } from '../commands/store.js';
 import { registerDoctorCommand } from '../commands/doctor.js';
 import { registerContextCommand } from '../commands/context.js';
 import { registerWorksetCommand } from '../commands/workset.js';
+import { AcceptanceCommand, type AcceptanceOptions } from '../commands/acceptance.js';
 import {
   statusCommand,
   instructionsCommand,
@@ -340,6 +341,19 @@ program
       failWithError(error);
       process.exit(1);
     }
+  });
+
+program
+  .command('acceptance [change-name]')
+  .description('Run deterministic acceptance gates for a change or project release')
+  .option('--project', 'Validate all active changes/specs and run project checks')
+  .option('--release', 'Alias for --project')
+  .option('--json', 'Output one versioned JSON acceptance report')
+  .option('--store <id>', STORE_OPTION_DESCRIPTION)
+  .addOption(hiddenStorePathOption())
+  .action(async (changeName?: string, options?: AcceptanceOptions) => {
+    const acceptanceCommand = new AcceptanceCommand();
+    await acceptanceCommand.execute(changeName, options);
   });
 
 registerSpecCommand(program);

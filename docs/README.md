@@ -60,6 +60,7 @@ That second one matters more than it looks. OpenSpec has two halves: a command l
 | [Editing & Iterating on a Change](editing-changes.md) | Update artifacts, go back, reconcile manual edits |
 | [Commands](commands.md) | Reference for every `/opsx:*` slash command |
 | [CLI](cli.md) | Reference for every `openspec` terminal command |
+| [Acceptance Gates](acceptance.md) | Deterministic CUE checks, test evidence, end-of-execute enforcement, and adversarial semantic review |
 
 ### Understand it deeply
 
