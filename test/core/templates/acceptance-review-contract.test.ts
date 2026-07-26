@@ -55,12 +55,20 @@ describe('end-of-execute adversarial acceptance contract', () => {
 
     for (const output of outputs) {
       expect(output).toContain(EXECUTION_ACCEPTANCE_CONTRACT);
-      expect(output).toContain('Read the evaluated CUE context before');
+      expect(output).toContain('Read the final evaluated CUE context before');
       expect(output).toContain('DEFERRED_SCOPE');
       expect(output).toContain('Missing deferred functionality is never a blocker');
       expect(output).toContain('openspec acceptance "<name>" --json');
       expect(output).toContain('architecture-conformance matrix');
       expect(output).toContain('exact controlled proof command');
+      expect(output).toContain('runtime-boundary-completeness');
+      expect(output).toContain('terminal-success-coherence');
+      expect(output).toContain('critical-interleaving-completeness');
+      expect(output).toContain('declaration-honesty');
+      expect(output).toContain('openspec validate "<name>" --strict --json');
+      expect(output).toContain('future merged specifications');
+      expect(output).toContain('completion-to-exit grace');
+      expect(output).toContain('BLOCKING_REQUIRED_PROOF_GAP');
     }
   });
 
@@ -87,6 +95,10 @@ describe('end-of-execute adversarial acceptance contract', () => {
     expect(EXECUTION_ACCEPTANCE_CONTRACT).toContain('evidence for a broad or different selector cannot satisfy the targeted declaration');
     expect(EXECUTION_ACCEPTANCE_CONTRACT).toContain('Do not add AST assumptions');
     expect(EXECUTION_ACCEPTANCE_CONTRACT).toContain('must declare an executable validation or explicit provider');
+    expect(EXECUTION_ACCEPTANCE_CONTRACT).toContain('test-suite and runtime-session proofs');
+    expect(EXECUTION_ACCEPTANCE_CONTRACT).toContain('same boundary and environment fidelity');
+    expect(EXECUTION_ACCEPTANCE_CONTRACT).toContain('opening and closing milestones');
+    expect(EXECUTION_ACCEPTANCE_CONTRACT).toContain('prove reachability only');
   });
 
   it('exercises every requested violation with an evidence-complete conforming counterpart', () => {

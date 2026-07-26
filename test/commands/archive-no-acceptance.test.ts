@@ -28,7 +28,7 @@ describe('archive approval boundary', () => {
   });
 
   it('archives without rerunning a declared acceptance check that would fail', async () => {
-    await createAcceptanceFixtureProject(fixtureRoot, 'zero-test');
+    await createAcceptanceFixtureProject(fixtureRoot, 'runtime-nonexecution');
 
     const result = await runCLI(
       ['archive', 'demo', '--yes', '--skip-specs', '--no-validate', '--json'],
@@ -43,6 +43,7 @@ describe('archive approval boundary', () => {
     });
     expect(payload.archive).not.toHaveProperty('acceptance');
     expect(payload).not.toHaveProperty('acceptance');
+    await expect(access(path.join(fixtureRoot, 'runtime-started'))).rejects.toThrow();
     await expect(
       access(path.join(fixtureRoot, 'openspec', 'changes', 'demo'))
     ).rejects.toThrow();

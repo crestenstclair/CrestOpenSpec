@@ -2,7 +2,7 @@ import type { JsonObject, JsonValue } from '../cue-architecture.js';
 import type { RootOutput } from '../root-selection.js';
 import type { ValidationIssue } from '../validation/types.js';
 
-export const ACCEPTANCE_REPORT_VERSION = '1.0' as const;
+export const ACCEPTANCE_REPORT_VERSION = '2.0' as const;
 
 export type AcceptanceGateStatus = 'passed' | 'failed' | 'not_applicable';
 export type AcceptanceScopeMode = 'change' | 'project';
@@ -104,9 +104,116 @@ export interface AssertionResult {
 export interface TestSuiteProof {
   type: 'test-suite';
   provider: string;
+  role?: AcceptanceProofRole;
   minimumExecuted: number;
   selector: JsonValue;
   options: JsonObject;
+}
+
+export type AcceptanceProofRole =
+  | 'target-reachability'
+  | 'static-validation'
+  | 'in-process-behavior'
+  | 'external-process-lifecycle'
+  | 'production-composition-runtime';
+
+export type RuntimeBoundary =
+  | 'external-process'
+  | 'production-composition'
+  | 'native-ui'
+  | 'physical-device'
+  | 'network-service'
+  | 'background-worker'
+  | 'callback-runtime';
+
+export type RuntimeEnvironment = 'synthetic' | 'physical' | 'native' | 'production';
+
+export type RuntimeLifecycle =
+  | 'bounded'
+  | 'interactive-persistent'
+  | 'service-persistent'
+  | 'background-owned';
+
+export type RuntimeStdioMode = 'pipe' | 'pty';
+export type RuntimeStream = 'stdout' | 'stderr';
+
+export interface RuntimeTimeouts {
+  startupTimeoutMs: number;
+  progressSilenceMs: number;
+  completionTimeoutMs: number;
+  completionToExitGraceMs: number;
+  teardownGraceMs: number;
+  hardTimeoutMs: number;
+}
+
+export interface RuntimeProgressMarker {
+  id: string;
+  stream: RuntimeStream;
+  contains: string;
+  minimumCount: number;
+}
+
+export interface RuntimeCompletionMarker {
+  id: string;
+  stream: RuntimeStream;
+  contains: string;
+  exactCount: number;
+}
+
+export interface RuntimeResourceDeclaration {
+  id: string;
+  type: string;
+  disposition: 'release' | 'retain-during-readiness';
+  owner: string;
+}
+
+export interface RuntimeInteractionDeclaration {
+  id: string;
+  provider: string;
+  opensAfter: string;
+  closesBefore: string;
+  request: JsonObject;
+  requiredAssertions: string[];
+}
+
+export interface RuntimeTeardownDeclaration {
+  provider: string;
+  request: JsonObject;
+}
+
+export interface RuntimeSessionProof {
+  type: 'runtime-session';
+  provider: string;
+  role: 'external-process-lifecycle' | 'production-composition-runtime';
+  entryPoint: string;
+  boundary: RuntimeBoundary;
+  environment: RuntimeEnvironment;
+  lifecycle: RuntimeLifecycle;
+  successCondition: string;
+  terminationOwner: string;
+  resources: RuntimeResourceDeclaration[];
+  stdioMode: RuntimeStdioMode;
+  timeouts: RuntimeTimeouts;
+  progress: RuntimeProgressMarker[];
+  completion: RuntimeCompletionMarker[];
+  requireExitCode: number;
+  requireNoDescendants: boolean;
+  requiredCapabilities: string[];
+  interactions: RuntimeInteractionDeclaration[];
+  teardown?: RuntimeTeardownDeclaration;
+}
+
+export type AcceptanceProof = TestSuiteProof | RuntimeSessionProof;
+
+export interface AcceptanceProofSummary {
+  type: AcceptanceProof['type'];
+  provider: string;
+  role?: AcceptanceProofRole;
+}
+
+export interface ValidationApplicabilityEvidence {
+  mode: 'project-check' | 'always' | 'changes';
+  changes?: string[];
 }
 
 export interface TestEvidence {
@@ -136,22 +243,136 @@ export interface ResolvedValidation {
   cwd: string;
   limits: ProcessLimits;
   assertions: AssertionDeclaration[];
-  proof?: TestSuiteProof;
+  applicability: ValidationApplicabilityEvidence;
+  proofRole?: AcceptanceProofRole;
+  proof?: AcceptanceProof;
+}
+
+export interface RuntimeMarkerOccurrence {
+  elapsedMs: number;
+  offset: number;
+  sequence: number;
+}
+
+export interface RuntimeMarkerObservation {
+  id: string;
+  phase: 'progress' | 'completion';
+  stream: RuntimeStream;
+  contains: string;
+  expected: { minimumCount: number } | { exactCount: number };
+  observedCount: number;
+  passed: boolean;
+  occurrences: RuntimeMarkerOccurrence[];
+}
+
+export interface RuntimeInteractionAssertionEvidence {
+  id: string;
+  passed: boolean;
+  expected?: JsonValue;
+  observed?: JsonValue;
+}
+
+export interface RuntimeInteractionProviderEvidence {
+  sessionId: string;
+  actionId: string;
+  attempted: boolean;
+  reachedSeam: boolean;
+  deliveredAtMs: number;
+  assertions: RuntimeInteractionAssertionEvidence[];
+  details: JsonObject;
+}
+
+export interface RuntimeInteractionEvidence {
+  id: string;
+  provider: string;
+  opensAfter: string;
+  closesBefore: string;
+  invokedAtMs?: number;
+  completedAtMs?: number;
+  openingObservedAtMs?: number;
+  closingObservedAtMs?: number;
+  status: 'passed' | 'failed';
+  evidence?: RuntimeInteractionProviderEvidence;
+  diagnostics: AcceptanceDiagnostic[];
+}
+
+export interface RuntimeTerminationAction {
+  elapsedMs: number;
+  action: string;
+  target: string;
+  succeeded: boolean;
+  detail?: string;
+}
+
+export interface RuntimeProcessTreeEvidence {
+  parentPid: number | null;
+  processGroupId: number | null;
+  observedPids: number[];
+  observedDescendantPids: number[];
+  remainingPids: number[];
+  parentExitedAtMs?: number;
+  noOwnedProcessesRemain: boolean;
+}
+
+export type RuntimeTimeoutStage =
+  | 'startup'
+  | 'progress_silence'
+  | 'completion'
+  | 'completion_to_exit'
+  | 'teardown'
+  | 'hard_limit';
+
+export interface RuntimeSessionEvidence {
+  sessionId: string;
+  provider: string;
+  proof: RuntimeSessionProof;
+  argv: string[];
+  cwd: string;
+  durationMs: number;
+  startupObservedAtMs?: number;
+  completionObservedAtMs?: number;
+  timeoutStage?: RuntimeTimeoutStage;
+  milestones: RuntimeMarkerObservation[];
+  interactions: RuntimeInteractionEvidence[];
+  processTree: RuntimeProcessTreeEvidence;
+  terminationActions: RuntimeTerminationAction[];
+  teardown: {
+    required: boolean;
+    provider?: string;
+    startedAtMs?: number;
+    completedAtMs?: number;
+    passed: boolean;
+  };
+}
+
+export interface RuntimeSessionEvidenceResult {
+  provider: string;
+  status: 'passed' | 'failed';
+  proof: RuntimeSessionProof;
+  evidence?: RuntimeSessionEvidence;
+  diagnostics: AcceptanceDiagnostic[];
 }
 
 export interface AcceptanceCheckResult {
   id: string;
   declaration: ValidationDeclarationProvenance;
+  applicability: ValidationApplicabilityEvidence;
+  proofRole?: AcceptanceProofRole;
+  proof?: AcceptanceProofSummary;
   process: ProcessResult;
   processPassed: boolean;
   assertions: AssertionResult[];
   assertionsPassed: boolean;
   testEvidence?: TestEvidenceResult;
+  runtimeSession?: RuntimeSessionEvidenceResult;
   passed: boolean;
   diagnostics: AcceptanceDiagnostic[];
 }
 
-export type ValidationDeclarationKind = 'project_check' | 'attached_test';
+export type ValidationDeclarationKind =
+  | 'project_check'
+  | 'attached_test'
+  | 'attached_runtime';
 
 export interface ValidationDeclarationProvenance {
   kind: ValidationDeclarationKind;
@@ -162,6 +383,7 @@ export interface ValidationDeclarationProvenance {
 export interface ValidationExecutionGateResult extends AcceptanceGateResult {
   declaredProjectChecks: number;
   applicableAttachedTests: number;
+  applicableAttachedRuntimeSessions: number;
   resolved: number;
   executed: number;
 }
@@ -200,6 +422,7 @@ export interface ValidationInventory {
   declared: boolean;
   projectCheckReferenceCount: number;
   applicableAttachedTestCount: number;
+  applicableAttachedRuntimeSessionCount: number;
   checks: ResolvedValidation[];
   diagnostics: AcceptanceDiagnostic[];
 }
@@ -207,6 +430,40 @@ export interface ValidationInventory {
 export interface TestEvidenceProviderRequest {
   proof: TestSuiteProof;
   process: ProcessResult;
+}
+
+export interface RuntimeSessionProviderRequest {
+  proof: RuntimeSessionProof;
+  argv: string[];
+  cwd: string;
+  limits: ProcessLimits;
+  declaration: ValidationDeclarationProvenance;
+}
+
+export interface RuntimeSessionProviderResult {
+  process: ProcessResult;
+  runtimeSession: RuntimeSessionEvidenceResult;
+}
+
+export interface RuntimeSessionProvider {
+  readonly id: string;
+  run(request: RuntimeSessionProviderRequest): Promise<RuntimeSessionProviderResult>;
+}
+
+export interface RuntimeInteractionProviderRequest {
+  sessionId: string;
+  sessionStartedAtEpochMs: number;
+  action: RuntimeInteractionDeclaration;
+  cwd: string;
+  limits: ProcessLimits;
+  milestones: RuntimeMarkerObservation[];
+}
+
+export interface RuntimeInteractionProvider {
+  readonly id: string;
+  invoke(
+    request: RuntimeInteractionProviderRequest
+  ): Promise<RuntimeInteractionProviderEvidence>;
 }
 
 export interface TestEvidenceProvider {

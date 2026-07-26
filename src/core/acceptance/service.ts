@@ -15,6 +15,10 @@ import {
 } from './openspec-validation.js';
 import { NodeCommandRunner } from './process-runner.js';
 import {
+  createDefaultRuntimeSessionRegistry,
+} from './runtime-session.js';
+import type { RuntimeSessionProviderRegistry } from './runtime-providers.js';
+import {
   createDefaultTestEvidenceRegistry,
   extractTestEvidence,
   type TestEvidenceProviderRegistry,
@@ -30,6 +34,7 @@ import {
   type CommandRunner,
   type ProcessExecutionRequest,
   type ProcessResult,
+  type RuntimeSessionEvidenceResult,
   type ValidationInventory,
 } from './types.js';
 
@@ -38,6 +43,7 @@ export interface AcceptanceServiceDependencies {
   commandRunner?: CommandRunner;
   assertionRegistry?: AssertionEvaluatorRegistry;
   testEvidenceRegistry?: TestEvidenceProviderRegistry;
+  runtimeSessionRegistry?: RuntimeSessionProviderRegistry;
   strictValidation?: (
     root: ResolvedOpenSpecRoot,
     scope: AcceptanceScope
@@ -59,6 +65,7 @@ function reportSkeleton(
         status: 'not_applicable',
         declaredProjectChecks: 0,
         applicableAttachedTests: 0,
+        applicableAttachedRuntimeSessions: 0,
         resolved: 0,
         executed: 0,
         diagnostics: [],
@@ -162,6 +169,7 @@ export class AcceptanceService {
   private readonly commandRunner: CommandRunner;
   private readonly assertionRegistry: AssertionEvaluatorRegistry;
   private readonly testEvidenceRegistry: TestEvidenceProviderRegistry;
+  private readonly runtimeSessionRegistry: RuntimeSessionProviderRegistry;
   private readonly strictValidation: NonNullable<
     AcceptanceServiceDependencies['strictValidation']
   >;
@@ -173,6 +181,8 @@ export class AcceptanceService {
       dependencies.assertionRegistry ?? createDefaultAssertionRegistry();
     this.testEvidenceRegistry =
       dependencies.testEvidenceRegistry ?? createDefaultTestEvidenceRegistry();
+    this.runtimeSessionRegistry =
+      dependencies.runtimeSessionRegistry ?? createDefaultRuntimeSessionRegistry();
     this.strictValidation = dependencies.strictValidation ?? runStrictOpenSpecValidation;
   }
 
@@ -232,13 +242,14 @@ export class AcceptanceService {
       const diagnostic: AcceptanceDiagnostic = {
         severity: 'info',
         code: 'acceptance_not_applicable_no_executable_validations',
-        message: 'Evaluated CUE declares neither project completion checks nor attached test validations; executable acceptance gates are not applicable.',
+        message: 'Evaluated CUE declares neither project completion checks nor attached test/runtime validations; executable acceptance gates are not applicable.',
         path: 'project',
       };
       base.gates.validations = {
         status: 'not_applicable',
         declaredProjectChecks: 0,
         applicableAttachedTests: 0,
+        applicableAttachedRuntimeSessions: 0,
         resolved: 0,
         executed: 0,
         diagnostics: [diagnostic],
@@ -268,6 +279,8 @@ export class AcceptanceService {
         status: 'failed',
         declaredProjectChecks: resolution.projectCheckReferenceCount,
         applicableAttachedTests: resolution.applicableAttachedTestCount,
+        applicableAttachedRuntimeSessions:
+          resolution.applicableAttachedRuntimeSessionCount,
         resolved: resolution.checks.length,
         executed: 0,
         diagnostics: [
@@ -297,6 +310,8 @@ export class AcceptanceService {
         status: 'failed',
         declaredProjectChecks: resolution.projectCheckReferenceCount,
         applicableAttachedTests: resolution.applicableAttachedTestCount,
+        applicableAttachedRuntimeSessions:
+          resolution.applicableAttachedRuntimeSessionCount,
         resolved: resolution.checks.length,
         executed: 0,
         diagnostics: [blocked],
@@ -327,6 +342,8 @@ export class AcceptanceService {
       status: checksPassed ? 'passed' : 'failed',
       declaredProjectChecks: resolution.projectCheckReferenceCount,
       applicableAttachedTests: resolution.applicableAttachedTestCount,
+      applicableAttachedRuntimeSessions:
+        resolution.applicableAttachedRuntimeSessionCount,
       resolved: resolution.checks.length,
       executed: checks.length,
       diagnostics: checkDiagnostics,
@@ -352,6 +369,8 @@ export class AcceptanceService {
       status: 'failed',
       declaredProjectChecks: resolution.projectCheckReferenceCount,
       applicableAttachedTests: resolution.applicableAttachedTestCount,
+      applicableAttachedRuntimeSessions:
+        resolution.applicableAttachedRuntimeSessionCount,
       resolved: resolution.checks.length,
       executed: 0,
       diagnostics: resolution.diagnostics,
@@ -369,14 +388,68 @@ export class AcceptanceService {
       limits: check.limits,
     };
     let process: ProcessResult;
-    try {
-      process = await this.commandRunner.run(request);
-    } catch (cause) {
-      process = unexpectedProcessResult(request, cause);
+    let runtimeSession: RuntimeSessionEvidenceResult | undefined;
+    if (check.proof?.type === 'runtime-session') {
+      const provider = this.runtimeSessionRegistry.get(check.proof.provider);
+      if (!provider) {
+        process = unexpectedProcessResult(
+          request,
+          new Error(`No runtime-session provider is registered for '${check.proof.provider}'.`)
+        );
+        runtimeSession = {
+          provider: check.proof.provider,
+          status: 'failed',
+          proof: check.proof,
+          diagnostics: [
+            {
+              severity: 'error',
+              code: 'runtime_session_provider_unsupported',
+              message: `No runtime-session provider is registered for '${check.proof.provider}'.`,
+              path: 'proof.provider',
+            },
+          ],
+        };
+      } else {
+        try {
+          const result = await provider.run({
+            proof: check.proof,
+            argv: check.argv,
+            cwd: check.cwd,
+            limits: check.limits,
+            declaration: check.declaration,
+          });
+          process = result.process;
+          runtimeSession = result.runtimeSession;
+        } catch (cause) {
+          process = unexpectedProcessResult(request, cause);
+          runtimeSession = {
+            provider: check.proof.provider,
+            status: 'failed',
+            proof: check.proof,
+            diagnostics: [
+              {
+                severity: 'error',
+                code: 'runtime_session_provider_failed',
+                message: `Runtime-session provider '${check.proof.provider}' failed unexpectedly: ${cause instanceof Error ? cause.message : String(cause)}`,
+                path: 'proof.provider',
+              },
+            ],
+          };
+        }
+      }
+    } else {
+      try {
+        process = await this.commandRunner.run(request);
+      } catch (cause) {
+        process = unexpectedProcessResult(request, cause);
+      }
     }
 
-    const processDiagnostic = processFailureDiagnostic(process);
-    const processPassed = processDiagnostic === undefined;
+    const runtimeProof = check.proof?.type === 'runtime-session' ? check.proof : undefined;
+    const processDiagnostic = runtimeProof ? undefined : processFailureDiagnostic(process);
+    const processPassed = runtimeProof
+      ? process.termination === 'exited' && process.exitCode === runtimeProof.requireExitCode
+      : processDiagnostic === undefined;
     const assertions = await evaluateAssertions(
       check.assertions,
       process,
@@ -384,27 +457,41 @@ export class AcceptanceService {
     );
     const assertionErrors = assertionDiagnostics(assertions);
     const assertionsPassed = assertions.every((assertion) => assertion.passed);
-    const testEvidence = check.proof
+    const testEvidence = check.proof?.type === 'test-suite'
       ? await extractTestEvidence(check.proof, process, this.testEvidenceRegistry)
       : undefined;
     const diagnostics = [
       ...(processDiagnostic ? [processDiagnostic] : []),
       ...assertionErrors,
       ...(testEvidence?.diagnostics ?? []),
+      ...(runtimeSession?.diagnostics ?? []),
     ];
     const passed =
       processPassed &&
       assertionsPassed &&
-      (testEvidence === undefined || testEvidence.status === 'passed');
+      (testEvidence === undefined || testEvidence.status === 'passed') &&
+      (runtimeSession === undefined || runtimeSession.status === 'passed');
 
     return {
       id: check.id,
       declaration: check.declaration,
+      applicability: check.applicability,
+      ...(check.proofRole ? { proofRole: check.proofRole } : {}),
+      ...(check.proof
+        ? {
+            proof: {
+              type: check.proof.type,
+              provider: check.proof.provider,
+              ...(check.proofRole ? { role: check.proofRole } : {}),
+            },
+          }
+        : {}),
       process,
       processPassed,
       assertions,
       assertionsPassed,
       ...(testEvidence ? { testEvidence } : {}),
+      ...(runtimeSession ? { runtimeSession } : {}),
       passed,
       diagnostics,
     };

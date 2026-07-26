@@ -169,7 +169,7 @@ The rendering is transient and exists only while instructions are assembled. The
 → **[Editing a Change](docs/editing-changes.md)**: update artifacts, go back, reconcile manual edits<br>
 → **[Commands](docs/commands.md)**: slash commands & skills<br>
 → **[CLI](docs/cli.md)**: terminal reference<br>
-→ **[Acceptance Gates](docs/acceptance.md)**: deterministic checks, test evidence, and adversarial semantic review<br>
+→ **[Acceptance Gates](docs/acceptance.md)**: deterministic checks, runtime lifecycle/interaction evidence, and adversarial semantic review<br>
 → **[Stores](docs/stores-beta/user-guide.md)**: plan in a separate repo, shared across your team (beta)<br>
 → **[Supported Tools](docs/supported-tools.md)**: tool integrations & install paths<br>
 → **[Concepts](docs/concepts.md)**: how it all fits<br>

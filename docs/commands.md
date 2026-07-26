@@ -287,7 +287,7 @@ Implement tasks from the change. Works through the task list, writing code and c
 - Works through tasks one by one
 - Writes code, creates files, runs tests as needed
 - Marks tasks complete with checkboxes `[x]`
-- After every task is complete, runs the shared semantic review and deterministic `openspec acceptance` report
+- After every task is complete, rebuilds final authority/architecture ledgers, runs final strict validation, and runs the shared semantic review plus deterministic `openspec acceptance` report (including applicable runtime sessions)
 - Keeps execute/apply incomplete when acceptance finds a blocker, so repairs happen in the active implementation loop
 
 **Example:**
@@ -395,7 +395,7 @@ Run both acceptance layers for a change: evidence-backed semantic conformance re
 - Classifies obligations as `CURRENT_SLICE`, `EVERGREEN_INVARIANT`, `DEFERRED_SCOPE`, or `UNAUTHORIZED_EARLY_SCOPE`
 - Builds an architecture-conformance matrix across production composition, runtime preparation, asynchronous failure, end-to-end observability, and validation declarations
 - Requires evidence-complete findings; keyword suspicion and missing deferred scope are not violations
-- Runs `openspec acceptance <change-name> --json` and keeps its result separate from semantic findings
+- Runs final strict validation and `openspec acceptance <change-name> --json`, including applicable runtime lifecycle and controlled-interaction proofs, and keeps the result separate from semantic findings
 - Reports `execution acceptance passed; ready for user review` only when both layers pass
 
 **Blocking classes:**
@@ -428,6 +428,8 @@ AI:  Evaluated CUE first and classified current obligations.
 **Tips:**
 - A passing command does not prove semantic conformance; both sections matter
 - A broad suite cannot hide an applicable attached test that selects zero tests
+- A success marker cannot hide a resident parent/child/resource, and a dry run cannot satisfy runtime lifecycle
+- Applicable physical/native or interaction capability gaps block instead of passing or skipping
 - Deferred roadmap absence is never a blocker
 - See [Acceptance Gates](acceptance.md) for the declaration and evidence contracts
 

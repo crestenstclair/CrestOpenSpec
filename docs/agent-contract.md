@@ -77,7 +77,7 @@ Success: `{ "archive": { "change", "archivedAs": "YYYY-MM-DD-name", "path", "spe
 
 ```json
 {
-  "version": "1.0",
+  "version": "2.0",
   "scope": { "mode": "change" | "project", "change": "optional" },
   "root": { "path": "/canonical/root", "source": "nearest", "store_id": "optional" } | null,
   "applicable": true,
@@ -85,7 +85,7 @@ Success: `{ "archive": { "change", "archivedAs": "YYYY-MM-DD-name", "path", "spe
   "gates": {
     "architecture": { "status": "passed" | "failed" | "not_applicable", "files": [], "diagnostics": [] },
     "openspec": { "status": "passed" | "failed" | "not_applicable", "items": [], "diagnostics": [] },
-    "validations": { "status": "passed" | "failed" | "not_applicable", "declaredProjectChecks": 1, "applicableAttachedTests": 1, "resolved": 2, "executed": 2, "diagnostics": [] }
+    "validations": { "status": "passed" | "failed" | "not_applicable", "declaredProjectChecks": 1, "applicableAttachedTests": 1, "applicableAttachedRuntimeSessions": 1, "resolved": 3, "executed": 3, "diagnostics": [] }
   },
   "checks": [],
   "diagnostics": [],
@@ -93,7 +93,9 @@ Success: `{ "archive": { "change", "archivedAs": "YYYY-MM-DD-name", "path", "spe
 }
 ```
 
-Each check includes its validation ID, declaration `{kind, location, owner}`, exact argv, canonical cwd, limits, process result, every assertion result, and—when test-bearing—the declared provider, minimum, and selector even if evidence extraction fails. Any returned evidence keeps its observed provider and selector separately so mismatches remain visible. Bounded stdout/stderr and diagnostics are included; environment data is never serialized. A failed report exits 1 but remains the complete stdout document; usage/root/internal failures use the same report shape. See [Acceptance Gates](acceptance.md).
+Each check includes its validation ID, declaration `{kind, location, owner}`, normalized applicability, proof `{type, provider, role?}`, exact argv, canonical cwd, limits, process result, and every assertion result. A test-suite check includes the declared provider, minimum, and selector even if evidence extraction fails; returned evidence keeps its observed provider and selector separately so mismatches remain visible.
+
+A runtime-session check additionally includes its exact entry point, proof role, boundary, environment, lifecycle, success/termination/resource declarations, stdio mode, six timeout budgets, marker observations and occurrence times, session-bound interactions, parent/group/descendant identities, teardown state, cleanup actions, timeout stage, and bounded diagnostics. `success_reported_but_process_resident`, interaction timing/session mismatches, unavailable required capabilities (`BLOCKING_REQUIRED_PROOF_GAP`), and cleanup failures remain stable structured diagnostics. Bounded stdout/stderr are included; inherited environment keys and values are never serialized. A failed report exits 1 but remains the complete stdout document; usage/root/internal failures use the same report shape. See [Acceptance Gates](acceptance.md).
 
 ### 4.10 `doctor --json`
 `{ "root": { "path", "source", "store_id"?, "healthy", "status": [] }, "store": { "id", "metadata": {present,valid,remote?}, "origin_url"?, "drift"?: {ahead,behind}, "status": [] } | null, "references": [...], "status": [] }`. `drift` (present only for a git-backed store checkout that has an upstream tracking ref) is ahead/behind counts against the last-fetched upstream, not the live remote. Health findings of any severity exit 0. Failure payload: `{ "root": null, "store": null, "references": [], "status": [d] }`, exit 1.

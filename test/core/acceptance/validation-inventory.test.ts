@@ -33,6 +33,50 @@ function attached(id: string, applicability: JsonObject = { mode: 'always' }): J
   });
 }
 
+function attachedRuntime(
+  id: string,
+  proofOverrides: JsonObject = {},
+  applicability: JsonObject = { mode: 'always' }
+): JsonObject {
+  return executable(id, 'attached', {
+    applicability,
+    proof: {
+      type: 'runtime-session',
+      provider: 'process-lifecycle-v1',
+      role: 'external-process-lifecycle',
+      entryPoint: 'fixture production command',
+      boundary: 'external-process',
+      environment: 'synthetic',
+      lifecycle: 'bounded',
+      successCondition: 'done exactly once then exit',
+      terminationOwner: 'process',
+      resources: [
+        { id: 'process', type: 'process', disposition: 'release', owner: 'fixture' },
+      ],
+      stdioMode: 'pipe',
+      timeouts: {
+        startupTimeoutMs: 100,
+        progressSilenceMs: 100,
+        completionTimeoutMs: 500,
+        completionToExitGraceMs: 100,
+        teardownGraceMs: 200,
+        hardTimeoutMs: 800,
+      },
+      progress: [
+        { id: 'progress', stream: 'stdout', contains: 'PROGRESS', minimumCount: 1 },
+      ],
+      completion: [
+        { id: 'done', stream: 'stdout', contains: 'DONE', exactCount: 1 },
+      ],
+      requireExitCode: 0,
+      requireNoDescendants: true,
+      requiredCapabilities: [],
+      interactions: [],
+      ...proofOverrides,
+    },
+  });
+}
+
 describe('resolveValidationInventory', () => {
   let root: string;
 
@@ -162,6 +206,130 @@ describe('resolveValidationInventory', () => {
     expect(change.diagnostics).toEqual([]);
     expect(release.applicableAttachedTestCount).toBe(1);
     expect(release.checks.map((check) => check.id)).toEqual(['validation.selected']);
+  });
+
+  it('inventories each applicable attached runtime session independently with exact provenance', () => {
+    const project: JsonObject = {
+      resources: {
+        runtime: {
+          validations: {
+            lifecycle: attachedRuntime('validation.runtime', {}, {
+              mode: 'changes',
+              changes: ['runtime-change'],
+            }),
+          },
+        },
+      },
+    };
+
+    const selected = resolveValidationInventory(project, root, {
+      mode: 'change',
+      change: 'runtime-change',
+    });
+    const unrelated = resolveValidationInventory(project, root, {
+      mode: 'change',
+      change: 'other-change',
+    });
+
+    expect(selected.diagnostics).toEqual([]);
+    expect(selected.applicableAttachedTestCount).toBe(0);
+    expect(selected.applicableAttachedRuntimeSessionCount).toBe(1);
+    expect(selected.checks[0]).toMatchObject({
+      id: 'validation.runtime',
+      declaration: {
+        kind: 'attached_runtime',
+        owner: 'project.resources.runtime',
+        location: 'project.resources.runtime.validations.lifecycle',
+      },
+      proof: {
+        type: 'runtime-session',
+        provider: 'process-lifecycle-v1',
+        boundary: 'external-process',
+        lifecycle: 'bounded',
+      },
+    });
+    expect(unrelated.applicableAttachedRuntimeSessionCount).toBe(0);
+    expect(unrelated.checks).toEqual([]);
+  });
+
+  it('rejects dishonest runtime and test-suite proof roles before execution', () => {
+    const dryRun = attachedRuntime('validation.dry-run', {
+      role: 'target-reachability',
+    });
+    const externalTest = attached('validation.fake-window');
+    (externalTest.proof as JsonObject).role = 'external-process-lifecycle';
+    const result = resolveValidationInventory(
+      {
+        resources: {
+          runtime: { validations: { dryRun, externalTest } },
+        },
+      },
+      root,
+      { mode: 'project' }
+    );
+
+    expect(result.checks).toEqual([]);
+    expect(
+      result.diagnostics.filter(
+        (entry) => entry.code === 'validation_proof_role_mismatch'
+      )
+    ).toHaveLength(2);
+  });
+
+  it('records reachability/static roles while requiring runtime proof for external roles', () => {
+    const project: JsonObject = {
+      completion: { projectChecks: ['reachability', 'external'] },
+      validations: {
+        reachability: {
+          ...executable('reachability', 'project'),
+          proofRole: 'target-reachability',
+        },
+        external: {
+          ...executable('external', 'project'),
+          proofRole: 'external-process-lifecycle',
+        },
+      },
+    };
+    const result = resolveValidationInventory(project, root, { mode: 'project' });
+
+    expect(result.checks).toHaveLength(1);
+    expect(result.checks[0]).toMatchObject({
+      id: 'reachability',
+      proofRole: 'target-reachability',
+    });
+    expect(result.diagnostics.map((entry) => entry.code)).toContain(
+      'validation_proof_role_mismatch'
+    );
+  });
+
+  it('rejects persistent lifecycle without controller teardown and PTY stderr markers', () => {
+    const persistent = attachedRuntime('validation.persistent', {
+      lifecycle: 'service-persistent',
+      resources: [
+        {
+          id: 'service',
+          type: 'service',
+          disposition: 'retain-during-readiness',
+          owner: 'fixture',
+        },
+      ],
+    });
+    const ptyStderr = attachedRuntime('validation.pty-stderr', {
+      stdioMode: 'pty',
+      completion: [
+        { id: 'done', stream: 'stderr', contains: 'DONE', exactCount: 1 },
+      ],
+    });
+    const result = resolveValidationInventory(
+      { resources: { runtime: { validations: { persistent, ptyStderr } } } },
+      root,
+      { mode: 'project' }
+    );
+    const codes = result.diagnostics.map((entry) => entry.code);
+
+    expect(codes).toContain('runtime_teardown_missing');
+    expect(codes).toContain('runtime_pty_stream_mismatch');
+    expect(result.checks).toEqual([]);
   });
 
   it('fails closed for missing applicability, orphaned references, duplicate identities, and ambiguous owners', () => {
@@ -304,6 +472,7 @@ describe('resolveValidationInventory', () => {
       declared: false,
       projectCheckReferenceCount: 0,
       applicableAttachedTestCount: 0,
+      applicableAttachedRuntimeSessionCount: 0,
       checks: [],
       diagnostics: [],
     });

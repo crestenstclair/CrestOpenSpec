@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 
 const fixtureDir = path.dirname(fileURLToPath(import.meta.url));
 const checkerPath = path.join(fixtureDir, 'neutral-check.mjs');
+const runtimeFixturePath = path.join(fixtureDir, 'runtime-session-fixture.mjs');
+const interactionDriverPath = path.join(fixtureDir, 'runtime-interaction-driver.mjs');
 
 const limits = {
   timeoutMs: 5000,
@@ -35,7 +37,58 @@ function testProof(selector, provider = 'structured-json-v1') {
   };
 }
 
-function projectFor(kind) {
+function runtimeProof(overrides = {}) {
+  return {
+    type: 'runtime-session',
+    provider: 'process-lifecycle-v1',
+    role: 'external-process-lifecycle',
+    entryPoint: 'fixture production command',
+    boundary: 'external-process',
+    environment: 'synthetic',
+    lifecycle: 'bounded',
+    successCondition: 'FINAL_STATE then FINAL_SUMMARY exactly once',
+    terminationOwner: 'process',
+    resources: [
+      { id: 'fixture-process', type: 'process', disposition: 'release', owner: 'fixture' },
+    ],
+    stdioMode: 'pipe',
+    timeouts: {
+      startupTimeoutMs: 400,
+      progressSilenceMs: 300,
+      completionTimeoutMs: 1200,
+      completionToExitGraceMs: 100,
+      teardownGraceMs: 400,
+      hardTimeoutMs: 1600,
+    },
+    progress: [
+      { id: 'checkpoint', stream: 'stdout', contains: 'CHECKPOINT', minimumCount: 1 },
+    ],
+    completion: [
+      { id: 'state', stream: 'stdout', contains: 'FINAL_STATE', exactCount: 1 },
+      { id: 'summary', stream: 'stdout', contains: 'FINAL_SUMMARY', exactCount: 1 },
+    ],
+    requireExitCode: 0,
+    requireNoDescendants: true,
+    requiredCapabilities: [],
+    interactions: [],
+    ...overrides,
+  };
+}
+
+function runtimeValidation(mode, proofOverrides = {}, extraArguments = []) {
+  return {
+    id: `fixture.runtime-${mode}`,
+    scope: 'attached',
+    command: [process.execPath, runtimeFixturePath, mode, ...extraArguments],
+    workingDirectory: '.',
+    limits,
+    assertions: [{ type: 'exit-code', equals: 0 }],
+    applicability: { mode: 'always' },
+    proof: runtimeProof(proofOverrides),
+  };
+}
+
+function projectFor(kind, root) {
   if (kind === 'passing') {
     return {
       name: 'acceptance-fixture',
@@ -150,6 +203,109 @@ function projectFor(kind) {
     };
   }
 
+  if (kind === 'runtime-passing' || kind === 'runtime-resident') {
+    const mode = kind === 'runtime-passing' ? 'clean' : 'success-hang';
+    return {
+      name: 'acceptance-runtime-fixture',
+      resources: {
+        runtime: {
+          validations: { lifecycle: runtimeValidation(mode) },
+        },
+      },
+    };
+  }
+
+  if (kind === 'runtime-capability-unavailable') {
+    return {
+      name: 'acceptance-runtime-fixture',
+      resources: {
+        runtime: {
+          validations: {
+            lifecycle: runtimeValidation('clean', {
+              environment: 'physical',
+              requiredCapabilities: ['fixture-physical-device'],
+            }),
+          },
+        },
+      },
+    };
+  }
+
+  if (kind === 'runtime-nonexecution') {
+    return {
+      name: 'acceptance-runtime-fixture',
+      resources: {
+        runtime: {
+          validations: {
+            lifecycle: runtimeValidation(
+              'success-hang',
+              {},
+              ['--started', path.join(root, 'runtime-started')]
+            ),
+          },
+        },
+      },
+    };
+  }
+
+  if (kind === 'runtime-interaction-passing' || kind === 'runtime-interaction-mismatch') {
+    const seamPath = path.join(root, 'interaction-seam.json');
+    const mode = kind === 'runtime-interaction-passing' ? 'pass' : 'before-window';
+    return {
+      name: 'acceptance-runtime-fixture',
+      resources: {
+        runtime: {
+          validations: {
+            interaction: runtimeValidation(
+              'interaction',
+              {
+                role: 'production-composition-runtime',
+                boundary: 'production-composition',
+                progress: [
+                  {
+                    id: 'window-open',
+                    stream: 'stdout',
+                    contains: 'WINDOW_OPEN',
+                    minimumCount: 1,
+                  },
+                ],
+                completion: [
+                  {
+                    id: 'window-close',
+                    stream: 'stdout',
+                    contains: 'WINDOW_CLOSE',
+                    exactCount: 1,
+                  },
+                  {
+                    id: 'summary',
+                    stream: 'stdout',
+                    contains: 'FINAL_SUMMARY',
+                    exactCount: 1,
+                  },
+                ],
+                interactions: [
+                  {
+                    id: 'mapped-input',
+                    provider: 'process-json-v1',
+                    opensAfter: 'window-open',
+                    closesBefore: 'window-close',
+                    request: {
+                      command: [process.execPath, interactionDriverPath],
+                      timeoutMs: 800,
+                      payload: { seamPath, action: 'mapped-input', mode },
+                    },
+                    requiredAssertions: ['isolation-preserved'],
+                  },
+                ],
+              },
+              ['--seam', seamPath]
+            ),
+          },
+        },
+      },
+    };
+  }
+
   throw new Error(`Unknown acceptance fixture kind '${kind}'.`);
 }
 
@@ -173,7 +329,7 @@ export async function createAcceptanceFixtureProject(target, kind) {
   await writeFile(path.join(changeDir, 'tasks.md'), '- [x] Exercise deterministic acceptance\n');
   await writeFile(
     path.join(root, 'spec', 'project.cue'),
-    `package acceptance\n\nproject: ${JSON.stringify(projectFor(kind), null, 2)}\n`
+    `package acceptance\n\nproject: ${JSON.stringify(projectFor(kind, root), null, 2)}\n`
   );
   return root;
 }
@@ -181,7 +337,7 @@ export async function createAcceptanceFixtureProject(target, kind) {
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const [target, kind] = process.argv.slice(2);
   if (!target || !kind) {
-    process.stderr.write('usage: node create-project.mjs <target> <passing|failing|unsupported-provider|zero-test|selector-mismatch>\n');
+    process.stderr.write('usage: node create-project.mjs <target> <passing|failing|unsupported-provider|zero-test|selector-mismatch|runtime-passing|runtime-resident|runtime-capability-unavailable|runtime-nonexecution|runtime-interaction-passing|runtime-interaction-mismatch>\n');
     process.exitCode = 2;
   } else {
     await createAcceptanceFixtureProject(target, kind);

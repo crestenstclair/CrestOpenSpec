@@ -101,8 +101,8 @@ Once the work is built, the end of `/opsx:apply` reads evaluated CUE and combine
 
 | Layer | What it checks |
 |-------|----------------|
-| **Adversarial semantic review** | Applicable current/evergreen obligations, production composition and behavior, required witnesses, and deferred scope |
-| **Deterministic acceptance** | CUE evaluation, strict OpenSpec validation, every declared project check and applicable attached test, assertions, and selector-bound nonzero test evidence |
+| **Adversarial semantic review** | Applicable current/evergreen obligations, production composition and behavior, runtime-boundary/lifecycle/interleaving completeness, honest proof roles, required witnesses, and deferred scope |
+| **Deterministic acceptance** | CUE evaluation, strict current and future-merged OpenSpec validation, every declared project check and applicable attached test/runtime session, assertions, selector-bound nonzero test evidence, and supervised teardown |
 
 ```
 You: /opsx:apply
@@ -115,7 +115,7 @@ AI:  Verifying add-dark-mode...
      Execution acceptance passed — ready for your review
 ```
 
-Applicable contradictions and required proof gaps keep execute/apply incomplete; deferred roadmap absence does not. Every blocker must cite authority, applicability, production evidence, a falsifiable contradiction or exact proof gap, the exact controlled proof command and production-seam witness, and the observed result. Keyword suspicion alone is not a violation. See [Acceptance Gates](acceptance.md) for the full contract.
+Applicable contradictions and required proof gaps—including an unavailable physical/native capability—keep execute/apply incomplete; deferred roadmap absence does not. Every blocker must cite authority, applicability, production evidence, a falsifiable contradiction or exact proof gap, the exact controlled proof command and production-seam witness, and the observed result. A success marker without bounded exit/cleanup is not completion, and keyword suspicion alone is not a violation. See [Acceptance Gates](acceptance.md) for the full contract.
 
 `/opsx:verify` is an optional expanded-profile command for a fresh review after execute/apply. If you don't have it, the normal end-of-apply acceptance still runs.
 

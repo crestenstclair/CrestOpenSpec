@@ -3,12 +3,26 @@ import * as path from 'node:path';
 import type { JsonObject, JsonValue } from '../cue-architecture.js';
 import { FileSystemUtils } from '../../utils/file-system.js';
 import type {
+  AcceptanceProof,
+  AcceptanceProofRole,
   AcceptanceDiagnostic,
   AcceptanceScope,
   AssertionDeclaration,
   ProcessLimits,
   ResolvedValidation,
+  RuntimeBoundary,
+  RuntimeCompletionMarker,
+  RuntimeEnvironment,
+  RuntimeInteractionDeclaration,
+  RuntimeLifecycle,
+  RuntimeProgressMarker,
+  RuntimeResourceDeclaration,
+  RuntimeSessionProof,
+  RuntimeStdioMode,
+  RuntimeTeardownDeclaration,
+  RuntimeTimeouts,
   TestSuiteProof,
+  ValidationApplicabilityEvidence,
   ValidationDeclarationKind,
   ValidationInventory,
 } from './types.js';
@@ -232,7 +246,7 @@ function parseProjectCheckReferences(
   return { fieldPresent: true, references };
 }
 
-function hasTestProof(candidate: ValidationCandidate): boolean {
+function hasProof(candidate: ValidationCandidate): boolean {
   return isObject(candidate.value) && hasOwn(candidate.value, 'proof');
 }
 
@@ -306,7 +320,7 @@ function parseAttachedApplicability(
     diagnostics.push(
       error(
         'validation_applicability_missing',
-        'Attached test validation requires explicit applicability metadata.',
+        'Attached proof-bearing validation requires explicit applicability metadata.',
         location
       )
     );
@@ -317,7 +331,7 @@ function parseAttachedApplicability(
     diagnostics.push(
       error(
         'validation_applicability_malformed',
-        "Attached test applicability mode must be 'always' or 'changes'.",
+        "Attached proof applicability mode must be 'always' or 'changes'.",
         `${location}.mode`
       )
     );
@@ -467,22 +481,43 @@ function parseAssertions(
   return assertions;
 }
 
-function parseProof(
-  value: JsonValue | undefined,
+const ACCEPTANCE_PROOF_ROLES = new Set<AcceptanceProofRole>([
+  'target-reachability',
+  'static-validation',
+  'in-process-behavior',
+  'external-process-lifecycle',
+  'production-composition-runtime',
+]);
+
+const RUNTIME_BOUNDARIES = new Set<RuntimeBoundary>([
+  'external-process',
+  'production-composition',
+  'native-ui',
+  'physical-device',
+  'network-service',
+  'background-worker',
+  'callback-runtime',
+]);
+
+const RUNTIME_ENVIRONMENTS = new Set<RuntimeEnvironment>([
+  'synthetic',
+  'physical',
+  'native',
+  'production',
+]);
+
+const RUNTIME_LIFECYCLES = new Set<RuntimeLifecycle>([
+  'bounded',
+  'interactive-persistent',
+  'service-persistent',
+  'background-owned',
+]);
+
+function parseTestSuiteProof(
+  value: JsonObject,
   location: string,
   diagnostics: AcceptanceDiagnostic[]
-): TestSuiteProof | undefined | null {
-  if (value === undefined) return undefined;
-  if (!isObject(value) || value.type !== 'test-suite') {
-    diagnostics.push(
-      error(
-        'validation_proof_malformed',
-        "Validation proof must be an object with type 'test-suite'.",
-        location
-      )
-    );
-    return null;
-  }
+): TestSuiteProof | null {
   if (typeof value.provider !== 'string' || !value.provider.trim()) {
     diagnostics.push(
       error(
@@ -492,6 +527,33 @@ function parseProof(
       )
     );
     return null;
+  }
+  let role: AcceptanceProofRole | undefined;
+  if (value.role !== undefined) {
+    if (
+      typeof value.role !== 'string' ||
+      !ACCEPTANCE_PROOF_ROLES.has(value.role as AcceptanceProofRole)
+    ) {
+      diagnostics.push(
+        error(
+          'validation_proof_malformed',
+          "Test-suite proof 'role' is not a supported proof role.",
+          `${location}.role`
+        )
+      );
+      return null;
+    }
+    role = value.role as AcceptanceProofRole;
+    if (role !== 'in-process-behavior') {
+      diagnostics.push(
+        error(
+          'validation_proof_role_mismatch',
+          `A test-suite proof cannot satisfy the '${role}' role; declare an in-process behavior role or use a runtime-session proof for an external runtime claim.`,
+          `${location}.role`
+        )
+      );
+      return null;
+    }
   }
   if (!hasOwn(value, 'selector') || value.selector === undefined) {
     diagnostics.push(
@@ -532,10 +594,561 @@ function parseProof(
   return {
     type: 'test-suite',
     provider: value.provider,
+    ...(role ? { role } : {}),
     minimumExecuted,
     selector: value.selector,
     options,
   };
+}
+
+function parseRuntimeTimeouts(
+  value: JsonValue | undefined,
+  location: string,
+  diagnostics: AcceptanceDiagnostic[]
+): RuntimeTimeouts | undefined {
+  if (!isObject(value)) {
+    diagnostics.push(
+      error(
+        'runtime_timeouts_malformed',
+        'Runtime proof timeouts must declare every lifecycle budget.',
+        location
+      )
+    );
+    return undefined;
+  }
+  const fields = [
+    'startupTimeoutMs',
+    'progressSilenceMs',
+    'completionTimeoutMs',
+    'completionToExitGraceMs',
+    'teardownGraceMs',
+    'hardTimeoutMs',
+  ] as const;
+  let valid = true;
+  for (const field of fields) {
+    const fieldValue = value[field];
+    if (
+      typeof fieldValue !== 'number' ||
+      !Number.isSafeInteger(fieldValue) ||
+      fieldValue < 1 ||
+      fieldValue > MAX_ACCEPTANCE_TIMEOUT_MS
+    ) {
+      diagnostics.push(
+        error(
+          'runtime_timeouts_malformed',
+          `'${field}' must be an integer from 1 through ${MAX_ACCEPTANCE_TIMEOUT_MS}.`,
+          `${location}.${field}`
+        )
+      );
+      valid = false;
+    }
+  }
+  if (!valid) return undefined;
+  const timeouts = Object.fromEntries(
+    fields.map((field) => [field, value[field] as number])
+  ) as unknown as RuntimeTimeouts;
+  if (
+    timeouts.startupTimeoutMs > timeouts.completionTimeoutMs ||
+    timeouts.completionTimeoutMs > timeouts.hardTimeoutMs ||
+    timeouts.progressSilenceMs > timeouts.hardTimeoutMs ||
+    timeouts.completionToExitGraceMs > timeouts.hardTimeoutMs ||
+    timeouts.teardownGraceMs > timeouts.hardTimeoutMs
+  ) {
+    diagnostics.push(
+      error(
+        'runtime_timeouts_incoherent',
+        'Runtime timeout stages must fit within the completion and hard limits.',
+        location
+      )
+    );
+    return undefined;
+  }
+  return timeouts;
+}
+
+function parseRuntimeMarkers(
+  value: JsonValue | undefined,
+  phase: 'progress' | 'completion',
+  location: string,
+  diagnostics: AcceptanceDiagnostic[]
+): RuntimeProgressMarker[] | RuntimeCompletionMarker[] | undefined {
+  if (!Array.isArray(value) || value.length === 0) {
+    diagnostics.push(
+      error(
+        'runtime_markers_malformed',
+        `Runtime '${phase}' must be a non-empty marker array.`,
+        location
+      )
+    );
+    return undefined;
+  }
+  const output: Array<RuntimeProgressMarker | RuntimeCompletionMarker> = [];
+  value.forEach((entry, index) => {
+    const markerLocation = `${location}[${index}]`;
+    const countField = phase === 'progress' ? 'minimumCount' : 'exactCount';
+    if (
+      !isObject(entry) ||
+      typeof entry.id !== 'string' ||
+      !entry.id.trim() ||
+      (entry.stream !== 'stdout' && entry.stream !== 'stderr') ||
+      typeof entry.contains !== 'string' ||
+      !entry.contains ||
+      typeof entry[countField] !== 'number' ||
+      !Number.isSafeInteger(entry[countField]) ||
+      (entry[countField] as number) < 1
+    ) {
+      diagnostics.push(
+        error(
+          'runtime_markers_malformed',
+          `Each ${phase} marker requires a non-empty id and substring, a stdout/stderr stream, and a positive ${countField}.`,
+          markerLocation
+        )
+      );
+      return;
+    }
+    if (phase === 'progress') {
+      output.push({
+        id: entry.id,
+        stream: entry.stream,
+        contains: entry.contains,
+        minimumCount: entry.minimumCount as number,
+      });
+    } else {
+      output.push({
+        id: entry.id,
+        stream: entry.stream,
+        contains: entry.contains,
+        exactCount: entry.exactCount as number,
+      });
+    }
+  });
+  return output.length === value.length
+    ? (output as RuntimeProgressMarker[] | RuntimeCompletionMarker[])
+    : undefined;
+}
+
+function parseRuntimeResources(
+  value: JsonValue | undefined,
+  location: string,
+  lifecycle: RuntimeLifecycle,
+  diagnostics: AcceptanceDiagnostic[]
+): RuntimeResourceDeclaration[] | undefined {
+  if (!Array.isArray(value) || value.length === 0) {
+    diagnostics.push(
+      error(
+        'runtime_resources_malformed',
+        'Runtime proof resources must be a non-empty array.',
+        location
+      )
+    );
+    return undefined;
+  }
+  const resources: RuntimeResourceDeclaration[] = [];
+  const seen = new Set<string>();
+  value.forEach((entry, index) => {
+    const resourceLocation = `${location}[${index}]`;
+    if (
+      !isObject(entry) ||
+      typeof entry.id !== 'string' ||
+      !entry.id.trim() ||
+      typeof entry.type !== 'string' ||
+      !entry.type.trim() ||
+      (entry.disposition !== 'release' && entry.disposition !== 'retain-during-readiness') ||
+      typeof entry.owner !== 'string' ||
+      !entry.owner.trim() ||
+      seen.has(entry.id)
+    ) {
+      diagnostics.push(
+        error(
+          'runtime_resources_malformed',
+          'Each runtime resource requires a unique id, type, owner, and supported disposition.',
+          resourceLocation
+        )
+      );
+      return;
+    }
+    if (lifecycle === 'bounded' && entry.disposition !== 'release') {
+      diagnostics.push(
+        error(
+          'runtime_resource_lifecycle_mismatch',
+          'A bounded runtime cannot declare a resource retained after terminal success.',
+          `${resourceLocation}.disposition`
+        )
+      );
+      return;
+    }
+    seen.add(entry.id);
+    resources.push(entry as unknown as RuntimeResourceDeclaration);
+  });
+  return resources.length === value.length ? resources : undefined;
+}
+
+function parseRuntimeInteractions(
+  value: JsonValue | undefined,
+  location: string,
+  markerOrder: Map<string, number>,
+  diagnostics: AcceptanceDiagnostic[]
+): RuntimeInteractionDeclaration[] | undefined {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) {
+    diagnostics.push(
+      error('runtime_interactions_malformed', "Runtime 'interactions' must be an array.", location)
+    );
+    return undefined;
+  }
+  const interactions: RuntimeInteractionDeclaration[] = [];
+  const ids = new Set<string>();
+  value.forEach((entry, index) => {
+    const interactionLocation = `${location}[${index}]`;
+    if (
+      !isObject(entry) ||
+      typeof entry.id !== 'string' ||
+      !entry.id.trim() ||
+      ids.has(entry.id) ||
+      typeof entry.provider !== 'string' ||
+      !entry.provider.trim() ||
+      typeof entry.opensAfter !== 'string' ||
+      !markerOrder.has(entry.opensAfter) ||
+      typeof entry.closesBefore !== 'string' ||
+      !markerOrder.has(entry.closesBefore) ||
+      entry.opensAfter === entry.closesBefore ||
+      (markerOrder.get(entry.opensAfter) as number) >=
+        (markerOrder.get(entry.closesBefore) as number) ||
+      !isObject(entry.request) ||
+      !Array.isArray(entry.requiredAssertions) ||
+      entry.requiredAssertions.length === 0 ||
+      !entry.requiredAssertions.every(
+        (assertion) => typeof assertion === 'string' && assertion.trim()
+      ) ||
+      new Set(entry.requiredAssertions).size !== entry.requiredAssertions.length
+    ) {
+      diagnostics.push(
+        error(
+          'runtime_interactions_malformed',
+          'Each interaction requires a unique id, provider, ordered opening/closing marker references, an object request, and unique required assertion IDs.',
+          interactionLocation
+        )
+      );
+      return;
+    }
+    ids.add(entry.id);
+    interactions.push({
+      id: entry.id,
+      provider: entry.provider,
+      opensAfter: entry.opensAfter,
+      closesBefore: entry.closesBefore,
+      request: entry.request,
+      requiredAssertions: [...entry.requiredAssertions] as string[],
+    });
+  });
+  return interactions.length === value.length ? interactions : undefined;
+}
+
+function parseRuntimeTeardown(
+  value: JsonValue | undefined,
+  location: string,
+  lifecycle: RuntimeLifecycle,
+  diagnostics: AcceptanceDiagnostic[]
+): RuntimeTeardownDeclaration | undefined | null {
+  if (lifecycle === 'bounded') {
+    if (value !== undefined) {
+      diagnostics.push(
+        error(
+          'runtime_lifecycle_teardown_mismatch',
+          'A bounded runtime must terminate itself and cannot declare controller teardown.',
+          location
+        )
+      );
+      return null;
+    }
+    return undefined;
+  }
+  if (
+    !isObject(value) ||
+    typeof value.provider !== 'string' ||
+    !value.provider.trim() ||
+    !isObject(value.request)
+  ) {
+    diagnostics.push(
+      error(
+        'runtime_teardown_missing',
+        'A persistent or background runtime requires a provider-backed controller teardown.',
+        location
+      )
+    );
+    return null;
+  }
+  return { provider: value.provider, request: value.request };
+}
+
+function parseRuntimeSessionProof(
+  value: JsonObject,
+  location: string,
+  diagnostics: AcceptanceDiagnostic[]
+): RuntimeSessionProof | null {
+  const before = diagnostics.length;
+  if (typeof value.provider !== 'string' || !value.provider.trim()) {
+    diagnostics.push(
+      error(
+        'validation_proof_malformed',
+        "Runtime-session proof requires a non-empty 'provider'.",
+        `${location}.provider`
+      )
+    );
+  }
+  if (
+    value.role !== 'external-process-lifecycle' &&
+    value.role !== 'production-composition-runtime'
+  ) {
+    diagnostics.push(
+      error(
+        'validation_proof_role_mismatch',
+        "A runtime-session proof must use role 'external-process-lifecycle' or 'production-composition-runtime'; reachability, static, and in-process roles cannot satisfy a runtime claim.",
+        `${location}.role`
+      )
+    );
+  }
+  if (typeof value.entryPoint !== 'string' || !value.entryPoint.trim()) {
+    diagnostics.push(
+      error(
+        'runtime_entry_point_malformed',
+        'Runtime proof entryPoint must name the exact production entry point.',
+        `${location}.entryPoint`
+      )
+    );
+  }
+  if (
+    typeof value.boundary !== 'string' ||
+    !RUNTIME_BOUNDARIES.has(value.boundary as RuntimeBoundary)
+  ) {
+    diagnostics.push(
+      error('runtime_boundary_malformed', 'Runtime proof boundary is unsupported.', `${location}.boundary`)
+    );
+  }
+  if (
+    typeof value.environment !== 'string' ||
+    !RUNTIME_ENVIRONMENTS.has(value.environment as RuntimeEnvironment)
+  ) {
+    diagnostics.push(
+      error(
+        'runtime_environment_malformed',
+        'Runtime proof environment is unsupported.',
+        `${location}.environment`
+      )
+    );
+  }
+  if (
+    typeof value.lifecycle !== 'string' ||
+    !RUNTIME_LIFECYCLES.has(value.lifecycle as RuntimeLifecycle)
+  ) {
+    diagnostics.push(
+      error(
+        'runtime_lifecycle_malformed',
+        'Runtime proof lifecycle is unsupported.',
+        `${location}.lifecycle`
+      )
+    );
+  }
+  if (typeof value.successCondition !== 'string' || !value.successCondition.trim()) {
+    diagnostics.push(
+      error(
+        'runtime_success_condition_malformed',
+        'Runtime proof successCondition must identify the authoritative condition.',
+        `${location}.successCondition`
+      )
+    );
+  }
+  if (typeof value.terminationOwner !== 'string' || !value.terminationOwner.trim()) {
+    diagnostics.push(
+      error(
+        'runtime_termination_owner_malformed',
+        'Runtime proof terminationOwner must identify who owns termination.',
+        `${location}.terminationOwner`
+      )
+    );
+  }
+  if (value.stdioMode !== 'pipe' && value.stdioMode !== 'pty') {
+    diagnostics.push(
+      error(
+        'runtime_stdio_mode_malformed',
+        "Runtime stdioMode must be 'pipe' or 'pty'.",
+        `${location}.stdioMode`
+      )
+    );
+  }
+  if (
+    typeof value.requireExitCode !== 'number' ||
+    !Number.isSafeInteger(value.requireExitCode)
+  ) {
+    diagnostics.push(
+      error(
+        'runtime_exit_requirement_malformed',
+        'Runtime requireExitCode must be an integer.',
+        `${location}.requireExitCode`
+      )
+    );
+  }
+  if (value.requireNoDescendants !== true) {
+    diagnostics.push(
+      error(
+        'runtime_descendant_requirement_malformed',
+        'Runtime requireNoDescendants must be true so acceptance cannot leave an owned fixture process behind.',
+        `${location}.requireNoDescendants`
+      )
+    );
+  }
+
+  const lifecycle = RUNTIME_LIFECYCLES.has(value.lifecycle as RuntimeLifecycle)
+    ? (value.lifecycle as RuntimeLifecycle)
+    : 'bounded';
+  const timeouts = parseRuntimeTimeouts(value.timeouts, `${location}.timeouts`, diagnostics);
+  const progress = parseRuntimeMarkers(
+    value.progress,
+    'progress',
+    `${location}.progress`,
+    diagnostics
+  ) as RuntimeProgressMarker[] | undefined;
+  const completion = parseRuntimeMarkers(
+    value.completion,
+    'completion',
+    `${location}.completion`,
+    diagnostics
+  ) as RuntimeCompletionMarker[] | undefined;
+  const resources = parseRuntimeResources(
+    value.resources,
+    `${location}.resources`,
+    lifecycle,
+    diagnostics
+  );
+
+  const allMarkers = [...(progress ?? []), ...(completion ?? [])];
+  if (
+    value.stdioMode === 'pty' &&
+    allMarkers.some((marker) => marker.stream === 'stderr')
+  ) {
+    diagnostics.push(
+      error(
+        'runtime_pty_stream_mismatch',
+        'PTY transport combines terminal output; PTY milestone declarations must observe stdout.',
+        `${location}.stdioMode`
+      )
+    );
+  }
+  const markerIds = new Set<string>();
+  const markerPredicates = new Set<string>();
+  for (const [index, marker] of allMarkers.entries()) {
+    const predicate = JSON.stringify([marker.stream, marker.contains]);
+    if (markerIds.has(marker.id) || markerPredicates.has(predicate)) {
+      diagnostics.push(
+        error(
+          'runtime_marker_identity_ambiguous',
+          'Runtime marker IDs and stream/substring predicates must be unique within a session.',
+          `${location}.${index < (progress?.length ?? 0) ? 'progress' : 'completion'}`
+        )
+      );
+    }
+    markerIds.add(marker.id);
+    markerPredicates.add(predicate);
+  }
+  const markerOrder = new Map(allMarkers.map((marker, index) => [marker.id, index]));
+  const interactions = parseRuntimeInteractions(
+    value.interactions,
+    `${location}.interactions`,
+    markerOrder,
+    diagnostics
+  );
+  const teardown = parseRuntimeTeardown(
+    value.teardown,
+    `${location}.teardown`,
+    lifecycle,
+    diagnostics
+  );
+
+  let requiredCapabilities: string[] | undefined;
+  if (
+    value.requiredCapabilities === undefined ||
+    !Array.isArray(value.requiredCapabilities) ||
+    !value.requiredCapabilities.every(
+      (capability) => typeof capability === 'string' && capability.trim()
+    ) ||
+    new Set(value.requiredCapabilities).size !== value.requiredCapabilities.length
+  ) {
+    diagnostics.push(
+      error(
+        'runtime_capabilities_malformed',
+        'Runtime requiredCapabilities must be a unique string array, including an empty array when no extra capability is required.',
+        `${location}.requiredCapabilities`
+      )
+    );
+  } else {
+    requiredCapabilities = [...value.requiredCapabilities] as string[];
+  }
+
+  if (
+    diagnostics.length !== before ||
+    !timeouts ||
+    !progress ||
+    !completion ||
+    !resources ||
+    !interactions ||
+    teardown === null ||
+    !requiredCapabilities
+  ) {
+    return null;
+  }
+  return {
+    type: 'runtime-session',
+    provider: value.provider as string,
+    role: value.role as RuntimeSessionProof['role'],
+    entryPoint: value.entryPoint as string,
+    boundary: value.boundary as RuntimeBoundary,
+    environment: value.environment as RuntimeEnvironment,
+    lifecycle,
+    successCondition: value.successCondition as string,
+    terminationOwner: value.terminationOwner as string,
+    resources,
+    stdioMode: value.stdioMode as RuntimeStdioMode,
+    timeouts,
+    progress,
+    completion,
+    requireExitCode: value.requireExitCode as number,
+    requireNoDescendants: value.requireNoDescendants as boolean,
+    requiredCapabilities,
+    interactions,
+    ...(teardown ? { teardown } : {}),
+  };
+}
+
+function parseProof(
+  value: JsonValue | undefined,
+  location: string,
+  diagnostics: AcceptanceDiagnostic[]
+): AcceptanceProof | undefined | null {
+  if (value === undefined) return undefined;
+  if (!isObject(value)) {
+    diagnostics.push(
+      error(
+        'validation_proof_malformed',
+        "Validation proof must be an object with type 'test-suite' or 'runtime-session'.",
+        location
+      )
+    );
+    return null;
+  }
+  if (value.type === 'test-suite') {
+    return parseTestSuiteProof(value, location, diagnostics);
+  }
+  if (value.type === 'runtime-session') {
+    return parseRuntimeSessionProof(value, location, diagnostics);
+  }
+  diagnostics.push(
+    error(
+      'validation_proof_malformed',
+      "Validation proof type must be 'test-suite' or 'runtime-session'.",
+      `${location}.type`
+    )
+  );
+  return null;
 }
 
 function parseExecutableValidation(
@@ -543,7 +1156,8 @@ function parseExecutableValidation(
   expectedScope: 'project' | 'attached',
   kind: ValidationDeclarationKind,
   projectRoot: string,
-  diagnostics: AcceptanceDiagnostic[]
+  diagnostics: AcceptanceDiagnostic[],
+  applicability: ValidationApplicabilityEvidence
 ): ResolvedValidation | undefined {
   if (!isObject(entry.value) || !entry.id) {
     diagnostics.push(
@@ -598,6 +1212,78 @@ function parseExecutableValidation(
     diagnostics
   );
   const proof = parseProof(value.proof, `${entry.location}.proof`, diagnostics);
+  let declaredProofRole: AcceptanceProofRole | undefined;
+  if (value.proofRole !== undefined) {
+    if (
+      typeof value.proofRole !== 'string' ||
+      !ACCEPTANCE_PROOF_ROLES.has(value.proofRole as AcceptanceProofRole)
+    ) {
+      diagnostics.push(
+        error(
+          'validation_proof_role_malformed',
+          "Validation 'proofRole' is not a supported proof role.",
+          `${entry.location}.proofRole`
+        )
+      );
+    } else {
+      declaredProofRole = value.proofRole as AcceptanceProofRole;
+    }
+  }
+  if (
+    proof?.role &&
+    declaredProofRole &&
+    proof.role !== declaredProofRole
+  ) {
+    diagnostics.push(
+      error(
+        'validation_proof_role_mismatch',
+        `Validation proofRole '${declaredProofRole}' conflicts with proof role '${proof.role}'.`,
+        `${entry.location}.proofRole`
+      )
+    );
+  }
+  const proofRole =
+    proof?.role ??
+    declaredProofRole ??
+    (proof?.type === 'test-suite' ? 'in-process-behavior' : undefined);
+  if (
+    proof?.type === 'test-suite' &&
+    proofRole !== 'in-process-behavior'
+  ) {
+    diagnostics.push(
+      error(
+        'validation_proof_role_mismatch',
+        `A test-suite proof cannot satisfy the '${proofRole}' role; external lifecycle and production composition require runtime-session proof.`,
+        `${entry.location}.proofRole`
+      )
+    );
+  }
+  if (
+    proof === undefined &&
+    (proofRole === 'external-process-lifecycle' ||
+      proofRole === 'production-composition-runtime')
+  ) {
+    diagnostics.push(
+      error(
+        'validation_proof_role_mismatch',
+        `Validation proofRole '${proofRole}' requires a runtime-session proof.`,
+        `${entry.location}.proofRole`
+      )
+    );
+  }
+  if (
+    limits &&
+    proof?.type === 'runtime-session' &&
+    proof.timeouts.hardTimeoutMs > limits.timeoutMs
+  ) {
+    diagnostics.push(
+      error(
+        'runtime_timeouts_incoherent',
+        `Runtime hardTimeoutMs (${proof.timeouts.hardTimeoutMs}) must not exceed the validation timeout (${limits.timeoutMs}).`,
+        `${entry.location}.proof.timeouts.hardTimeoutMs`
+      )
+    );
+  }
 
   if (
     diagnostics.length !== before ||
@@ -616,6 +1302,8 @@ function parseExecutableValidation(
     cwd,
     limits,
     assertions,
+    applicability,
+    ...(proofRole ? { proofRole } : {}),
     ...(proof ? { proof } : {}),
   };
 }
@@ -628,13 +1316,14 @@ export function resolveValidationInventory(
   const diagnostics: AcceptanceDiagnostic[] = [];
   const collected = collectArchitectureValidations(project);
   const projectChecks = parseProjectCheckReferences(project, diagnostics);
-  const attachedWithProof = collected.attached.filter(hasTestProof);
+  const attachedWithProof = collected.attached.filter(hasProof);
   const declared = projectChecks.fieldPresent || attachedWithProof.length > 0;
   if (!declared) {
     return {
       declared: false,
       projectCheckReferenceCount: 0,
       applicableAttachedTestCount: 0,
+      applicableAttachedRuntimeSessionCount: 0,
       checks: [],
       diagnostics: [],
     };
@@ -669,23 +1358,39 @@ export function resolveValidationInventory(
         'project',
         'project_check',
         projectRoot,
-        diagnostics
+        diagnostics,
+        { mode: 'project-check' }
       );
       if (check) checks.push(check);
     }
   }
 
   let applicableAttachedTestCount = 0;
+  let applicableAttachedRuntimeSessionCount = 0;
   for (const entry of attachedWithProof) {
     const applicable = parseAttachedApplicability(entry, scope, diagnostics);
     if (applicable !== true) continue;
-    applicableAttachedTestCount++;
+    const proofType = isObject(entry.value) && isObject(entry.value.proof)
+      ? entry.value.proof.type
+      : undefined;
+    if (proofType === 'runtime-session') {
+      applicableAttachedRuntimeSessionCount++;
+    } else {
+      applicableAttachedTestCount++;
+    }
     const check = parseExecutableValidation(
       entry,
       'attached',
-      'attached_test',
+      proofType === 'runtime-session' ? 'attached_runtime' : 'attached_test',
       projectRoot,
-      diagnostics
+      diagnostics,
+      isObject(entry.value) && isObject(entry.value.applicability) &&
+        entry.value.applicability.mode === 'changes'
+        ? {
+            mode: 'changes',
+            changes: [...(entry.value.applicability.changes as string[])],
+          }
+        : { mode: 'always' }
     );
     if (check) checks.push(check);
   }
@@ -694,6 +1399,7 @@ export function resolveValidationInventory(
     declared: true,
     projectCheckReferenceCount: projectChecks.references.length,
     applicableAttachedTestCount,
+    applicableAttachedRuntimeSessionCount,
     checks,
     diagnostics,
   };

@@ -579,9 +579,9 @@ openspec acceptance --project [--json] [--store <id>]
 openspec acceptance --release [--json] [--store <id>]
 ```
 
-`--release` aliases `--project`; those flags cannot be combined with a change name. The command evaluates CUE, strictly validates applicable OpenSpec material, resolves project checks plus applicable attached test validations, executes every declaration with bounded direct argument vectors, evaluates every assertion, and verifies selector-bound nonzero test evidence. It exits nonzero on any mandatory failure.
+`--release` aliases `--project`; those flags cannot be combined with a change name. The command evaluates CUE, strictly validates applicable current and future-merged OpenSpec material, resolves project checks plus applicable attached test and runtime-session validations, executes every declaration with bounded direct argument vectors, evaluates every assertion, verifies selector-bound nonzero test evidence, and supervises runtime milestones, interactions, teardown, parent exit, and owned descendants. It exits nonzero on any mandatory failure or required host-capability gap.
 
-The command is transient and does not write a status ledger. It proves deterministic gates only—not semantic implementation conformance. See [Acceptance Gates](acceptance.md) for the CUE schema, report contract, providers, security limits, and agent-review layer.
+The command is transient and does not write a status ledger. It proves declared deterministic gates only—not semantic implementation conformance or undeclared environment fidelity. Normal reads and archive never start runtime sessions. See [Acceptance Gates](acceptance.md) for the CUE schema, report contract, providers, lifecycle/interaction evidence, security limits, and agent-review layer.
 
 ### `openspec archive`
 

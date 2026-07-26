@@ -68,8 +68,9 @@ Implementation and proof
 - \`assets\` describe concrete implementation artifacts. Their kind, targets, prompts, profiles, and validations are implementation intent—not another planning database.
 - \`meta\` is inherited guidance: language/style/rules/prompts/references/examples/avoid plus notes, rationale, framework, review level, mode, and amendments.
 - Invariants are behavioral constraints. Treat them as non-negotiable acceptance/design constraints, not suggestions.
-- \`validations\` are executable checks. Project validations are whole-system gates; resource validations prove local contracts.
+- \`validations\` are executable checks. Project validations are whole-system gates; attached validations prove local contracts or declared runtime sessions. Keep reachability, static, in-process behavior, external lifecycle, production composition, environment fidelity, and controlled interaction proof roles explicit.
 - \`witnesses\` are behavioral proof with a positive command, a controlled negative command, structured observations, and predicates. Evidence links to validations/witnesses. Do not replace measured proof with self-reported success text.
+- A runtime success marker is intermediate evidence, not completion. For applicable external-runtime claims, require a same-boundary runtime-session proof through declared success, teardown, parent exit, owned-resource cleanup, and any milestone-bound critical interaction.
 
 How CUE drives OpenSpec artifacts
 - Proposal: ground Why and scope in mission, goals, non-goals, capabilities, and requirements. Name the affected canonical IDs.

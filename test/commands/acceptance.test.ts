@@ -48,7 +48,7 @@ describe('acceptance command', () => {
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe('');
     expect(report).toMatchObject({
-      version: '1.0',
+      version: '2.0',
       applicable: true,
       passed: true,
       scope: { mode: 'change', change: 'demo' },
@@ -149,6 +149,103 @@ describe('acceptance command', () => {
     });
     expect(report.checks[0].diagnostics.map((entry: any) => entry.code)).toContain(
       'validation_nonzero_exit'
+    );
+  });
+
+  it('emits one complete runtime-session JSON report for clean terminal teardown', async () => {
+    const result = await runFixture('runtime-passing');
+    const report = parseOneJsonDocument(result);
+
+    expect(result.exitCode).toBe(0);
+    expect(report).toMatchObject({ version: '2.0', applicable: true, passed: true });
+    expect(report.gates.validations).toMatchObject({
+      applicableAttachedTests: 0,
+      applicableAttachedRuntimeSessions: 1,
+      resolved: 1,
+      executed: 1,
+      status: 'passed',
+    });
+    expect(report.checks[0]).toMatchObject({
+      declaration: { kind: 'attached_runtime' },
+      passed: true,
+      runtimeSession: {
+        provider: 'process-lifecycle-v1',
+        status: 'passed',
+        proof: {
+          role: 'external-process-lifecycle',
+          boundary: 'external-process',
+          environment: 'synthetic',
+          lifecycle: 'bounded',
+        },
+        evidence: {
+          argv: [process.execPath, expect.any(String), 'clean'],
+          cwd: await realpath(fixtureRoot),
+          processTree: { noOwnedProcessesRemain: true, remainingPids: [] },
+        },
+      },
+    });
+    expect(report.checks[0].runtimeSession.evidence).not.toHaveProperty('env');
+  });
+
+  it('emits one complete failure report when success is followed by a resident process', async () => {
+    const result = await runFixture('runtime-resident');
+    const report = parseOneJsonDocument(result);
+
+    expect(result.exitCode).toBe(1);
+    expect(report.passed).toBe(false);
+    expect(
+      report.checks[0].runtimeSession.diagnostics.map((entry: any) => entry.code)
+    ).toContain('success_reported_but_process_resident');
+    expect(report.checks[0].runtimeSession.evidence).toMatchObject({
+      timeoutStage: 'completion_to_exit',
+      processTree: { noOwnedProcessesRemain: true, remainingPids: [] },
+    });
+    expect(
+      report.checks[0].runtimeSession.evidence.terminationActions.length
+    ).toBeGreaterThan(0);
+  });
+
+  it('reports unavailable physical capability as blocking instead of pass or skip', async () => {
+    const result = await runFixture('runtime-capability-unavailable');
+    const report = parseOneJsonDocument(result);
+
+    expect(result.exitCode).toBe(1);
+    expect(report.checks[0].runtimeSession).toMatchObject({
+      status: 'failed',
+      diagnostics: [
+        expect.objectContaining({ code: 'BLOCKING_REQUIRED_PROOF_GAP' }),
+      ],
+    });
+    expect(report.checks[0].runtimeSession.evidence).toBeUndefined();
+  });
+
+  it('reports a complete session-bound critical-interleaving timing mismatch', async () => {
+    const result = await runFixture('runtime-interaction-mismatch');
+    const report = parseOneJsonDocument(result);
+
+    expect(result.exitCode).toBe(1);
+    const interaction = report.checks[0].runtimeSession.evidence.interactions[0];
+    expect(interaction).toMatchObject({
+      id: 'mapped-input',
+      provider: 'process-json-v1',
+      opensAfter: 'window-open',
+      closesBefore: 'window-close',
+      status: 'failed',
+      evidence: {
+        attempted: true,
+        reachedSeam: true,
+        deliveredAtMs: 0,
+        assertions: [
+          expect.objectContaining({ id: 'isolation-preserved', passed: true }),
+        ],
+      },
+      diagnostics: [
+        expect.objectContaining({ code: 'runtime_interaction_timing_mismatch' }),
+      ],
+    });
+    expect(interaction.openingObservedAtMs).toBeGreaterThan(0);
+    expect(interaction.closingObservedAtMs).toBeGreaterThan(
+      interaction.openingObservedAtMs
     );
   });
 
