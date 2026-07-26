@@ -52,7 +52,7 @@ ${STORE_SELECTION_GUIDANCE}
    - Dynamic instruction based on current state
 
    **Handle states:**
-   - If \`state: "blocked"\` (missing artifacts): show message, suggest using openspec-continue-change
+   - If \`state: "blocked"\` (missing artifacts): show message, suggest using openspec-continue-change (if it is not installed, run \`openspec status --change "<name>" --json\` to see the next artifact and \`openspec instructions <artifact-id> --change "<name>" --json\` for how to create it)
    - If \`state: "all_done"\`: skip task execution and proceed directly to end-of-execute acceptance
    - Otherwise: proceed to implementation
 
@@ -219,7 +219,7 @@ ${STORE_SELECTION_GUIDANCE}
    - Dynamic instruction based on current state
 
    **Handle states:**
-   - If \`state: "blocked"\` (missing artifacts): show message, suggest using \`/opsx:continue\`
+   - If \`state: "blocked"\` (missing artifacts): show message, suggest using \`/opsx:continue\` (if it is not installed, run \`openspec status --change "<name>" --json\` to see the next artifact and \`openspec instructions <artifact-id> --change "<name>" --json\` for how to create it)
    - If \`state: "all_done"\`: skip task execution and proceed directly to end-of-execute acceptance
    - Otherwise: proceed to implementation
 

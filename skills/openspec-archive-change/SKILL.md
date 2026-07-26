@@ -24,7 +24,7 @@ Archive one OpenSpec change after the user has reviewed and approved the complet
 5. After approval, invoke `openspec archive "<name>" --yes` with the selected store flag. Never move directories or write canonical specs directly.
 6. Preserve and report the core command's result. If it fails, the change remains unarchived.
 
-Acceptance belongs at the end of execute/apply. Do not run the shared adversarial review or `openspec acceptance` as archive ceremony, and do not imply that archive revalidated functionality. If the user requests another functional review before approving, use `/opsx:verify` explicitly and return to archive only after that separate review.
+Acceptance belongs at the end of execute/apply. Do not run the shared adversarial review or `openspec acceptance` as archive ceremony, and do not imply that archive revalidated functionality. If the user requests another functional review before approving, use `/openspec-verify-change` explicitly and return to archive only after that separate review.
 
 **Output**
 

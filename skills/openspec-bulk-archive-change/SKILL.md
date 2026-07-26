@@ -23,7 +23,7 @@ Archive an approved subset of previously reviewed OpenSpec changes.
 4. For every confirmed change, invoke `openspec archive "<name>" --yes` with the selected store flag. Never move directories or write canonical specs directly.
 5. Continue through independent core archive failures and report archived and failed changes separately.
 
-Acceptance belongs at the end of each execute/apply run. Do not run the shared adversarial review or `openspec acceptance` during bulk archive. If the user requests renewed functional review for a change, run `/opsx:verify` separately before asking whether to include it in the approved archive subset.
+Acceptance belongs at the end of each execute/apply run. Do not run the shared adversarial review or `openspec acceptance` during bulk archive. If the user requests renewed functional review for a change, run `/openspec-verify-change` separately before asking whether to include it in the approved archive subset.
 
 **Output**
 

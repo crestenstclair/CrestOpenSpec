@@ -99,6 +99,12 @@ This tells you:
 
 When \`architecture\` is present, read \`architecture.interpretation\`, \`architecture.project\`, and \`architecture.relationships\` before reasoning about the system. Treat the resolved project and relationship index as authoritative for boundaries, dependencies, intent, and verification. Identify any proposed architecture change as a change to the CUE sources.
 
+Then read the project's own context from the resolved root - \`<root.path>/openspec/config.yaml\` (or \`config.yml\`). Use the \`root.path\` returned above, and skip this if neither file exists:
+- \`context\`: project background - tech stack, conventions, constraints
+- \`rules\`: keyed by artifact id - the entries for an artifact apply only when you write that artifact
+
+Ground your thinking in these. They are constraints for you to follow, not content to reproduce: do NOT copy them into the conversation or into any artifact you create.
+
 ### When no change exists
 
 Think freely. When insights crystallize, you might offer:
@@ -399,6 +405,12 @@ This tells you:
 - Whether the project has an evaluated CUE architecture in \`architecture\`
 
 When \`architecture\` is present, read \`architecture.interpretation\`, \`architecture.project\`, and \`architecture.relationships\` before reasoning about the system. Treat the resolved project and relationship index as authoritative for boundaries, dependencies, intent, and verification. Identify any proposed architecture change as a change to the CUE sources.
+
+Then read the project's own context from the resolved root - \`<root.path>/openspec/config.yaml\` (or \`config.yml\`). Use the \`root.path\` returned above, and skip this if neither file exists:
+- \`context\`: project background - tech stack, conventions, constraints
+- \`rules\`: keyed by artifact id - the entries for an artifact apply only when you write that artifact
+
+Ground your thinking in these. They are constraints for you to follow, not content to reproduce: do NOT copy them into the conversation or into any artifact you create.
 
 If the user mentioned a specific change name, read its artifacts for context.
 

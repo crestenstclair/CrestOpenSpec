@@ -37,7 +37,7 @@ Revise a change's existing planning artifacts and keep them coherent. Never edit
    ```
    Parse the JSON to understand current state. The response includes:
    - `schemaName`: The workflow schema being used (e.g., "spec-driven")
-   - `artifacts`: Array of artifacts with their status ("done", "ready", "blocked")
+   - `artifacts`: Array of artifacts with their status ("done", "skipped", "ready", "blocked")
    - `isComplete`: Boolean indicating if all artifacts are complete
    - `planningHome`, `changeRoot`, `artifactPaths`, and `actionContext`: path and scope context. Use these instead of assuming repo-local paths.
 
@@ -61,7 +61,7 @@ Revise a change's existing planning artifacts and keep them coherent. Never edit
    - Note everything that is now inconsistent, missing, or contradictory.
    - If the project has CUE architecture, reconcile the listed CUE sources in the same update. Do not turn required CUE edits into future implementation tasks.
    - If a summary artifact already exists, revise it last so it remains a dense, bullet-only outline of the reconciled source artifacts and CUE model.
-   - Revise only files that already exist (`existingOutputPaths`). Do NOT create artifacts that don't exist yet, and do NOT invent new files under a glob artifact - note them and point the user to `/opsx:continue` to create them.
+   - Revise only files that already exist (`existingOutputPaths`). Do NOT create artifacts that don't exist yet, and do NOT invent new files under a glob artifact - note them and point the user to `/openspec-continue-change` to create them.
    - If the change is already coherent, say so and make no edits.
 
 5. **Confirm and apply, one artifact at a time**
@@ -73,16 +73,16 @@ Revise a change's existing planning artifacts and keep them coherent. Never edit
      ```
 
 6. **Point to the next step (guidance only - NEVER act on it)**
-   - Artifacts still missing -> suggest `/opsx:continue` to create them.
-   - Change already implemented (tasks checked off / already applied) -> the code may no longer match the revised plan; suggest `/opsx:apply` to carry the delta into code.
-   - Everything done and implemented -> suggest `/opsx:archive`.
+   - Artifacts still missing -> suggest `/openspec-continue-change` to create them.
+   - Change already implemented (tasks checked off / already applied) -> the code may no longer match the revised plan; suggest `/openspec-apply-change` to carry the delta into code.
+   - Everything done and implemented -> suggest `/openspec-archive-change`.
 
 **Output**
 
 After each invocation, show:
 - Which artifacts were revised (and which proposed revisions were rejected)
 - Which CUE sources were revised, or that the evaluated CUE required no semantic change
-- Anything deferred to `/opsx:continue` (not-yet-created artifacts or files)
+- Anything deferred to `/openspec-continue-change` (not-yet-created artifacts or files)
 - Where the change stands and the recommended next command
 
 **CUE planning reconciliation**
@@ -103,9 +103,10 @@ In the built-in spec-driven schema, `summary` is the final required artifact:
 - Do not add narrative prose or introduce new decisions. If summarizing reveals a gap, fix the authoritative source artifact first.
 
 **Guardrails**
-- Planning artifacts and listed CUE architecture sources only - NEVER edit implementation code. If the revised plan implies code changes, stop and point to `/opsx:apply`.
+- Planning artifacts and listed CUE architecture sources only - NEVER edit implementation code. If the revised plan implies code changes, stop and point to `/openspec-apply-change`.
 - Use the artifact ids and paths reported by `openspec status`; never branch on hardcoded artifact names.
 - For change artifacts, edit only the concrete files in `existingOutputPaths`; never write to a glob `resolvedOutputPath`. Existing paths in `architecture.files` are the explicit CUE exception.
-- Do not advance the build frontier: no new artifacts, no new files under glob artifacts - that is `/opsx:continue`'s job.
+- Do not advance the build frontier: no new artifacts, no new files under glob artifacts - that is `/openspec-continue-change`'s job.
 - Confirm every edit with the user before writing.
-- If the request changes the change's *intent* rather than refining it, recommend starting fresh with `/opsx:new` (the "Update vs. Start Fresh" heuristic).
+- If the request changes the change's *intent* rather than refining it, recommend starting fresh with `/openspec-new-change` (the "Update vs. Start Fresh" heuristic).
+- `/openspec-continue-change` and `/openspec-new-change` may not be installed (core profile). When suggesting one that is unavailable, point to the CLI instead: `openspec status --change "<name>" --json` shows the next artifact and `openspec instructions <artifact-id> --change "<name>" --json` explains how to create it.
