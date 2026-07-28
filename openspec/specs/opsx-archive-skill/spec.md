@@ -3,9 +3,7 @@
 ## Purpose
 
 Define the expected behavior for the `/opsx:archive` skill, including readiness checks, spec sync prompting, archive execution, and user-facing output.
-
 ## Requirements
-
 ### Requirement: OPSX Archive Skill
 
 The system SHALL provide an `/opsx:archive` skill that archives completed changes in the experimental workflow.
@@ -129,3 +127,10 @@ The skill SHALL provide clear feedback about the archive operation.
 - **WHEN** archive completes with incomplete artifacts or tasks
 - **THEN** include note about what was incomplete
 - **AND** suggest reviewing if archive was intentional
+
+### Requirement: Runtime-session non-execution during archive
+Archive and bulk archive SHALL consume reviewed completion state and user approval without starting deterministic runtime sessions, process supervisors, or interaction drivers.
+
+#### Scenario: Archive a change with runtime declarations
+- **WHEN** a user approves archive for a change whose evaluated architecture declares runtime-session proofs
+- **THEN** archive performs its normal validation, spec update, and record operation without invoking acceptance or any runtime provider
