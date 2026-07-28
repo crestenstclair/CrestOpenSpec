@@ -4,6 +4,20 @@
 
 The system SHALL provide an `/opsx:archive` skill that archives a completed change after user approval without repeating implementation acceptance.
 
+#### Scenario: Archive a change with all artifacts complete
+
+- **WHEN** the user approves archiving an exact active change
+- **AND** all artifacts in the schema are complete
+- **AND** all tasks are complete
+- **THEN** the agent moves the change to `openspec/changes/archive/<target-name>/`
+- **AND** displays success message with archived location
+
+#### Scenario: Change selection prompt
+
+- **WHEN** agent executes `/opsx:archive` without specifying a change
+- **THEN** the agent prompts user to select from available changes
+- **AND** shows only active changes (excludes archive/)
+
 #### Scenario: Archive a reviewed change
 
 - **WHEN** the user approves archiving an exact active change
@@ -26,6 +40,8 @@ The system SHALL provide an `/opsx:archive` skill that archives a completed chan
 - **WHEN** core archive reports a validation, confirmation, spec-update, target, or filesystem failure
 - **THEN** the workflow reports that diagnostic and leaves the change active
 - **AND** does not convert the failure into a second adversarial implementation review
+
+## ADDED Requirements
 
 ### Requirement: Approval-focused bulk archive
 

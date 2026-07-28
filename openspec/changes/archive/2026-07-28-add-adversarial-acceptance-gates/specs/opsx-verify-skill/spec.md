@@ -75,6 +75,27 @@ The agent SHALL verify applicable completeness obligations using the selected ch
 - **AND** counts tasks marked `- [x]` (complete) versus `- [ ]` (incomplete)
 - **AND** reports the exact incomplete tasks as current-slice evidence
 
+#### Scenario: All tasks complete
+
+- **WHEN** all tasks are marked complete
+- **THEN** report "Tasks: N/N complete"
+- **AND** mark completeness dimension as passed
+
+#### Scenario: Incomplete tasks found
+
+- **WHEN** some tasks are incomplete
+- **THEN** report "Tasks: X/N complete"
+- **AND** list each incomplete task
+- **AND** mark as CRITICAL issue
+- **AND** suggest: "Complete remaining tasks or mark as done if already implemented"
+
+#### Scenario: Spec coverage check
+
+- **WHEN** verifying completeness
+- **AND** delta specs exist in `openspec/changes/<name>/specs/`
+- **THEN** the agent maps every delta requirement into the obligation ledger with concrete implementation evidence
+- **AND** reports each requirement's applicability classification and evidence status instead of keyword-search coverage
+
 #### Scenario: Build obligation ledger
 
 - **WHEN** verifying completeness
@@ -138,6 +159,36 @@ The agent SHALL trace current or executed implementation paths against applicabl
 - **WHEN** production execution or a controlled negative proof is feasible
 - **THEN** the agent prefers that evidence over self-reported success strings or mocks that bypass the reviewed behavior
 
+
+#### Scenario: Requirement implementation mapping
+- **WHEN** verifying correctness
+- **THEN** for each requirement in delta specs:
+  - Search codebase for implementation
+  - Identify relevant files and line numbers
+  - Assess whether implementation satisfies the requirement
+
+#### Scenario: Scenario coverage check
+- **WHEN** verifying correctness
+- **THEN** for each scenario in delta specs:
+  - Check if the scenario's conditions are handled in code
+  - Check if tests exist that cover the scenario
+  - Report coverage status
+
+#### Scenario: Implementation matches spec
+- **WHEN** implementation appears to satisfy a requirement
+- **THEN** report which files/lines implement it
+- **AND** mark requirement as covered
+
+#### Scenario: Implementation diverges from spec
+- **WHEN** implementation exists but doesn't match spec intent
+- **THEN** report the divergence as WARNING
+- **AND** explain what differs
+- **AND** suggest: either update implementation or update spec to match reality
+
+#### Scenario: Missing implementation
+- **WHEN** no implementation found for a requirement
+- **THEN** report as CRITICAL issue
+- **AND** suggest: "Implement requirement X" with guidance on what's needed
 ### Requirement: Coherence Verification
 
 The agent SHALL verify applicable implementation coherence against evaluated CUE, design decisions, boundaries, dependency direction, ownership, and project patterns while keeping deferred future design non-blocking.
@@ -171,6 +222,35 @@ The agent SHALL verify applicable implementation coherence against evaluated CUE
 - **THEN** the agent may report `INFORMATIONAL_FUTURE_RISK`
 - **AND** states that it does not affect acceptance
 
+
+#### Scenario: Design.md adherence check
+- **WHEN** verifying coherence
+- **AND** design.md exists for the change
+- **THEN** extract key decisions from design.md
+- **AND** verify implementation follows those decisions
+- **AND** report any deviations
+
+#### Scenario: No design.md
+- **WHEN** verifying coherence
+- **AND** no design.md exists
+- **THEN** skip design adherence check
+- **AND** note "No design.md to verify against"
+
+#### Scenario: Design decision followed
+- **WHEN** implementation follows a design decision
+- **THEN** report as confirmed
+- **AND** cite evidence from code
+
+#### Scenario: Design decision violated
+- **WHEN** implementation contradicts a design decision
+- **THEN** report as WARNING
+- **AND** explain the contradiction
+- **AND** suggest: either update implementation or update design.md
+
+#### Scenario: Code pattern consistency
+- **WHEN** verifying coherence
+- **THEN** check if new code follows existing project patterns
+- **AND** flag any significant deviations as suggestions
 ### Requirement: Verification Report Format
 
 The agent SHALL produce a structured report that separates deterministic gates, applicable blocking semantic findings, deferred observations, and informational risks.
@@ -210,3 +290,53 @@ The agent SHALL produce a structured report that separates deterministic gates, 
 - **WHEN** any deterministic gate or applicable semantic finding blocks
 - **THEN** the report states that execution acceptance remains incomplete
 - **AND** does not allow warnings, prose, or user confirmation to replace the failed proof
+
+#### Scenario: Report summary
+- **WHEN** verification completes
+- **THEN** display summary scorecard:
+  ```text
+  ## Verification Report: <change-name>
+
+  ### Summary
+  | Dimension    | Status   |
+  |--------------|----------|
+  | Completeness | X/Y      |
+  | Correctness  | X/Y      |
+  | Coherence    | Followed |
+  ```
+
+#### Scenario: Issue prioritization
+- **WHEN** issues are found
+- **THEN** group and display in priority order:
+  1. CRITICAL - Must fix before archive (missing implementation, incomplete tasks)
+  2. WARNING - Should fix (divergence from spec/design, missing tests)
+  3. SUGGESTION - Nice to fix (pattern inconsistencies, minor improvements)
+
+#### Scenario: Actionable recommendations
+- **WHEN** reporting an issue
+- **THEN** include specific, actionable fix recommendation
+- **AND** reference relevant files and line numbers where applicable
+- **AND** avoid vague suggestions like "consider reviewing"
+
+#### Scenario: All checks pass
+- **WHEN** no issues found across all dimensions
+- **THEN** display:
+  ```text
+  All checks passed. Ready for archive.
+  ```
+
+#### Scenario: Critical issues found
+- **WHEN** CRITICAL issues exist
+- **THEN** display:
+  ```text
+  X critical issue(s) found. Fix before archiving.
+  ```
+- **AND** do NOT suggest running archive
+
+#### Scenario: Only warnings/suggestions
+- **WHEN** no CRITICAL issues but warnings exist
+- **THEN** display:
+  ```text
+  No critical issues. Y warning(s) to consider.
+  Ready for archive (with noted improvements).
+  ```
